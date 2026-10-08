@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
-import type { Task, TaskStatus, TaskSource, Priority } from "@/lib/types";
+import type { Task, TaskStatus, TaskSource, Priority, Project } from "@/lib/types";
 import { Plus, Pencil, Trash2, List, Kanban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 const STATUSES: { id: TaskStatus; label: string }[] = [
@@ -28,15 +28,28 @@ const emptyForm = {
   priority: "medium" as Priority,
   description: "",
   link: "",
+  project_id: "",
 };
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isPastDeadline(t: Task) {
+  return !!t.due_date && new Date(t.due_date) < startOfToday();
+}
 
 export default function TasksPage() {
   const supabase = createClient();
   const { currentSemesterId } = useSemesters();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "kanban" | "calendar">("list");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [courseFilter, setCourseFilter] = useState<string>("");
   const [showDone, setShowDone] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -47,10 +60,29 @@ export default function TasksPage() {
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false });
-    if (currentSemesterId) query = query.eq("semester_id", currentSemesterId);
-    const { data } = await query;
-    setTasks((data as Task[]) ?? []);
+
+    let taskQuery = supabase
+      .from("tasks")
+      .select("*")
+      .order("due_date", { ascending: true, nullsFirst: false });
+
+    let projectQuery = supabase
+      .from("projects")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (currentSemesterId) {
+      taskQuery = taskQuery.eq("semester_id", currentSemesterId);
+      projectQuery = projectQuery.eq("semester_id", currentSemesterId);
+    }
+
+    const [{ data: taskData }, { data: projectData }] = await Promise.all([
+      taskQuery,
+      projectQuery,
+    ]);
+
+    setTasks((taskData as Task[]) ?? []);
+    setProjects((projectData as Project[]) ?? []);
     setLoading(false);
   }
 
@@ -59,13 +91,41 @@ export default function TasksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSemesterId]);
 
+  const courses = useMemo(() => {
+    return Array.from(
+      new Set(
+        tasks
+          .map((t) => t.course?.trim())
+          .filter(Boolean) as string[]
+      )
+    ).sort((a, b) => a.localeCompare(b, "id"));
+  }, [tasks]);
+
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
-      if (!showDone && t.status === "done" && view !== "kanban") return false;
+      if (t.status === "done" && !showDone) return false;
+
       if (statusFilter && t.status !== statusFilter) return false;
+      if (courseFilter && t.course !== courseFilter) return false;
+
       return true;
     });
-  }, [tasks, statusFilter, showDone, view]);
+  }, [tasks, statusFilter, courseFilter, showDone]);
+
+  const calendarTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (
+        t.status === "done" && !showDone
+      ) {
+        return false;
+      }
+
+      if (statusFilter && t.status !== statusFilter) return false;
+      if (courseFilter && t.course !== courseFilter) return false;
+
+      return true;
+    });
+  }, [tasks, statusFilter, courseFilter, showDone]);
 
   function openCreate() {
     setForm(emptyForm);
@@ -83,6 +143,7 @@ export default function TasksPage() {
       priority: t.priority,
       description: t.description ?? "",
       link: t.link ?? "",
+      project_id: t.project_id ?? "",
     });
     setModalOpen(true);
   }
@@ -98,6 +159,7 @@ export default function TasksPage() {
       priority: form.priority,
       description: form.description || null,
       link: form.link || null,
+      project_id: form.project_id || null,
       semester_id: currentSemesterId,
       completed_at: form.status === "done" ? new Date().toISOString() : null,
     };
@@ -156,32 +218,34 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {view === "list" && (
-          <>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!w-auto">
-              <option value="">Semua Status</option>
-              {STATUSES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
-              Tampilkan Done
-            </label>
-          </>
-        )}
+        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!w-auto">
+          <option value="">Semua Status</option>
+          {STATUSES.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </Select>
+
+        <Select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="!w-auto">
+          <option value="">Semua Mata Kuliah</option>
+          {courses.map((course) => (
+            <option key={course} value={course}>{course}</option>
+          ))}
+        </Select>
+
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-zinc-500">
+          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
+          Tampilkan Done
+        </label>
       </div>
 
       {loading ? (
         <p className="text-sm text-zinc-400">Memuat...</p>
       ) : view === "list" ? (
-        <ListView tasks={filtered} onEdit={openEdit} onDelete={deleteTask} onStatus={quickStatus} />
+        <ListView tasks={filtered} projects={projects} onEdit={openEdit} onDelete={deleteTask} onStatus={quickStatus} />
       ) : view === "kanban" ? (
-        <KanbanView tasks={filtered} onEdit={openEdit} onStatus={quickStatus} />
+        <KanbanView tasks={filtered} projects={projects} onEdit={openEdit} onStatus={quickStatus} />
       ) : (
-        <CalendarView tasks={tasks} month={month} setMonth={setMonth} onEdit={openEdit} />
+        <CalendarView tasks={calendarTasks} month={month} setMonth={setMonth} onEdit={openEdit} />
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Edit Task" : "Task Baru"}>
@@ -201,6 +265,15 @@ export default function TasksPage() {
               <Input value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} />
             </Field>
           </div>
+          <Field label="Project (opsional)">
+            <Select value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })}>
+              <option value="">Tidak terkait project</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
+          </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Deadline">
               <Input
@@ -266,11 +339,13 @@ function isOverdue(t: Task) {
 
 function ListView({
   tasks,
+  projects,
   onEdit,
   onDelete,
   onStatus,
 }: {
   tasks: Task[];
+  projects: Project[];
   onEdit: (t: Task) => void;
   onDelete: (id: string) => void;
   onStatus: (id: string, s: TaskStatus) => void;
@@ -288,8 +363,18 @@ function ListView({
             </div>
             <p className="mt-0.5 text-xs text-zinc-500">
               {SOURCE_LABEL[t.source]}
-              {t.course ? ` · ${t.course}` : ""} · {fmtDate(t.due_date)}
+              {t.course ? ` • ${t.course}` : ""} • {fmtDate(t.due_date)}
             </p>
+            {t.project_id && (
+              <p className="mt-0.5 text-xs text-indigo-600">
+                Project: {projects.find((p) => p.id === t.project_id)?.name ?? "Project tidak ditemukan"}
+              </p>
+            )}
+            {t.description && (
+              <p className="mt-1 text-xs text-zinc-500 whitespace-pre-wrap">
+                {t.description}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Select value={t.status} onChange={(e) => onStatus(t.id, e.target.value as TaskStatus)} className="!w-auto text-xs">
@@ -318,6 +403,7 @@ function KanbanView({
   onStatus,
 }: {
   tasks: Task[];
+  projects: Project[];
   onEdit: (t: Task) => void;
   onStatus: (id: string, s: TaskStatus) => void;
 }) {
@@ -337,6 +423,11 @@ function KanbanView({
                     <p className="text-sm font-medium text-zinc-900">{t.title}</p>
                     <p className="mt-0.5 text-xs text-zinc-500">{t.course || SOURCE_LABEL[t.source]}</p>
                     <p className="mt-1 text-xs text-zinc-400">{fmtDate(t.due_date)}</p>
+                    {t.description && (
+                      <p className="mt-1 text-xs text-zinc-500 whitespace-pre-wrap">
+                        {t.description}
+                      </p>
+                    )}
                   </div>
                   {col.id !== "done" && (
                     <div className="mt-2 flex justify-end">
@@ -347,7 +438,7 @@ function KanbanView({
                           if (next) onStatus(t.id, next.id);
                         }}
                       >
-                        Pindah →
+                        Pindah 
                       </button>
                     </div>
                   )}
@@ -418,10 +509,12 @@ function CalendarView({
                       key={t.id}
                       onClick={() => onEdit(t)}
                       className={`block w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${
-                        t.status === "done" ? "bg-zinc-100 text-zinc-400 line-through" : "bg-indigo-50 text-indigo-700"
+                        t.status === "done"
+                          ? "bg-zinc-100 text-zinc-500"
+                          : "bg-indigo-50 text-indigo-700"
                       }`}
                     >
-                      {t.title}
+                      {t.status === "done" ? "✓ Selesai • " : ""}{t.title}
                     </button>
                   ))}
                   {(byDay[day]?.length ?? 0) > 3 && <p className="text-[10px] text-zinc-400">+{byDay[day].length - 3} lagi</p>}
@@ -434,3 +527,20 @@ function CalendarView({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

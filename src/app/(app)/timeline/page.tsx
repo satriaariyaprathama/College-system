@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
 import type { AcademicEvent } from "@/lib/types";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const TYPES = ["UTS", "UAS", "KRS", "Pembayaran", "Libur", "Administratif", "Lainnya"];
 
@@ -19,6 +19,131 @@ const emptyForm = {
   source_link: "",
 };
 
+function AcademicCalendar({
+  items,
+  month,
+  setMonth,
+}: {
+  items: AcademicEvent[];
+  month: Date;
+  setMonth: (date: Date) => void;
+}) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+
+  const firstDay = new Date(year, monthIndex, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  const cells: (number | null)[] = [
+    ...Array(startOffset).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  function dateKey(day: number) {
+    const m = String(monthIndex + 1).padStart(2, "0");
+    const d = String(day).padStart(2, "0");
+    return `${year}-${m}-${d}`;
+  }
+
+  function hasEvent(day: number) {
+    const key = dateKey(day);
+
+    return items.some((event) => {
+      const start = event.start_date;
+      const end = event.end_date ?? event.start_date;
+
+      return key >= start && key <= end;
+    });
+  }
+
+  const today = new Date();
+  const todayKey =
+    `${today.getFullYear()}-` +
+    `${String(today.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(today.getDate()).padStart(2, "0")}`;
+
+  return (
+    <Card className="!p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          onClick={() => setMonth(new Date(year, monthIndex - 1, 1))}
+          className="rounded-lg p-1.5 hover:bg-zinc-100"
+          aria-label="Bulan sebelumnya"
+        >
+          <ChevronLeft size={17} />
+        </button>
+
+        <p className="text-sm font-semibold text-zinc-900">
+          {month.toLocaleDateString("id-ID", {
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+
+        <button
+          onClick={() => setMonth(new Date(year, monthIndex + 1, 1))}
+          className="rounded-lg p-1.5 hover:bg-zinc-100"
+          aria-label="Bulan berikutnya"
+        >
+          <ChevronRight size={17} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-zinc-400">
+        {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day) => (
+          <div key={day} className="py-1">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {cells.map((day, index) => {
+          if (!day) {
+            return (
+              <div
+                key={index}
+                className="min-h-10 rounded-lg"
+              />
+            );
+          }
+
+          const event = hasEvent(day);
+          const isToday = dateKey(day) === todayKey;
+
+          return (
+            <div
+              key={day}
+              className={`flex min-h-10 flex-col items-center justify-center rounded-lg border text-xs ${
+                isToday
+                  ? "border-indigo-300 bg-indigo-50"
+                  : "border-zinc-100 bg-white"
+              }`}
+            >
+              <span
+                className={`font-medium ${
+                  isToday ? "text-indigo-700" : "text-zinc-700"
+                }`}
+              >
+                {day}
+              </span>
+
+              {event && (
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+        Ada event
+      </div>
+    </Card>
+  );
+}
 export default function TimelinePage() {
   const supabase = createClient();
   const { currentSemesterId } = useSemesters();
@@ -26,6 +151,10 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
   async function load() {
     setLoading(true);
@@ -105,7 +234,14 @@ export default function TimelinePage() {
       ) : items.length === 0 ? (
         <EmptyState text="Belum ada milestone akademik." />
       ) : (
-        <div className="relative space-y-2 border-l-2 border-zinc-100 pl-5">
+        <div className="space-y-6">
+          <AcademicCalendar
+            items={items}
+            month={calendarMonth}
+            setMonth={setCalendarMonth}
+          />
+
+          <div className="relative space-y-2 border-l-2 border-zinc-100 pl-5">
           {items.map((ev) => {
             const past = ev.end_date ? ev.end_date < today : ev.start_date < today;
             return (
@@ -139,6 +275,7 @@ export default function TimelinePage() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 

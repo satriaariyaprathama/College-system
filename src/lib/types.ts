@@ -1,4 +1,4 @@
-export type TaskSource = "elearning" | "dosen" | "personal";
+﻿export type TaskSource = "elearning" | "dosen" | "personal";
 export type TaskStatus = "inbox" | "planned" | "in_progress" | "review" | "done";
 export type Priority = "low" | "medium" | "high";
 export type LearningStatus = "planned" | "learning" | "paused" | "completed";
@@ -29,6 +29,7 @@ export interface Task {
   priority: Priority;
   description: string | null;
   link: string | null;
+  project_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -46,6 +47,7 @@ export interface LectureNote {
   unclear_points: string | null;
   conclusion: string | null;
   link: string | null;
+  project_id: string | null;
   created_at: string;
 }
 
@@ -82,6 +84,15 @@ export interface Project {
   link: string | null;
   notes: string | null;
   portfolio_status: PortfolioStatus;
+  created_at: string;
+}
+
+export interface ProjectUpdate {
+  id: string;
+  user_id: string;
+  project_id: string;
+  update_date: string;
+  content: string;
   created_at: string;
 }
 
@@ -131,3 +142,5 @@ export interface SemesterReview {
   next_focus: string | null;
   created_at: string;
 }
+
+

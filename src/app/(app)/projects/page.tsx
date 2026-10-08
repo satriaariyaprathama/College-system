@@ -3,11 +3,32 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
-import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
-import type { Project, ProjectStatus, PortfolioStatus } from "@/lib/types";
-import { Plus, Pencil, Trash2, Link as LinkIcon } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Textarea,
+} from "@/components/ui";
+import type {
+  Project,
+  ProjectStatus,
+  PortfolioStatus,
+  Task,
+  ProjectUpdate,
+} from "@/lib/types";
+import { Plus, Pencil, Trash2, Link as LinkIcon, X } from "lucide-react";
 
-const STATUSES: { id: ProjectStatus; label: string; color: "zinc" | "indigo" | "amber" | "emerald" }[] = [
+const STATUSES: {
+  id: ProjectStatus;
+  label: string;
+  color: "zinc" | "indigo" | "amber" | "emerald";
+}[] = [
   { id: "idea", label: "Idea", color: "zinc" },
   { id: "planned", label: "Planned", color: "amber" },
   { id: "in_progress", label: "In Progress", color: "indigo" },
@@ -33,19 +54,61 @@ const emptyForm = {
 export default function ProjectsPage() {
   const supabase = createClient();
   const { currentSemesterId } = useSemesters();
+
   const [items, setItems] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [statusFilter, setStatusFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
   const [form, setForm] = useState(emptyForm);
+
+  const [updateDate, setUpdateDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [updateContent, setUpdateContent] = useState("");
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("projects").select("*").order("created_at", { ascending: false });
-    if (currentSemesterId) query = query.eq("semester_id", currentSemesterId);
-    const { data } = await query;
-    setItems((data as Project[]) ?? []);
+
+    let projectQuery = supabase
+      .from("projects")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    let taskQuery = supabase
+      .from("tasks")
+      .select("*")
+      .order("due_date", { ascending: true, nullsFirst: false });
+
+    if (currentSemesterId) {
+      projectQuery = projectQuery.eq("semester_id", currentSemesterId);
+      taskQuery = taskQuery.eq("semester_id", currentSemesterId);
+    }
+
+    const [{ data: projectData }, { data: taskData }] = await Promise.all([
+      projectQuery,
+      taskQuery,
+    ]);
+
+    setItems((projectData as Project[]) ?? []);
+    setTasks((taskData as Task[]) ?? []);
     setLoading(false);
+  }
+
+  async function loadUpdates(projectId: string) {
+    const { data } = await supabase
+      .from("project_updates")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("update_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    setUpdates((data as ProjectUpdate[]) ?? []);
   }
 
   useEffect(() => {
@@ -53,33 +116,59 @@ export default function ProjectsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSemesterId]);
 
-  const filtered = statusFilter ? items.filter((i) => i.status === statusFilter) : items;
+  const filtered = statusFilter
+    ? items.filter((item) => item.status === statusFilter)
+    : items;
+
+  function getProjectTasks(projectId: string) {
+    return tasks.filter((task) => task.project_id === projectId);
+  }
+
+  function getProgress(projectId: string) {
+    const related = getProjectTasks(projectId);
+    const total = related.length;
+    const done = related.filter((task) => task.status === "done").length;
+    const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    return { total, done, percent };
+  }
 
   function openCreate() {
     setForm(emptyForm);
     setModalOpen(true);
   }
 
-  function openEdit(p: Project) {
+  function openEdit(project: Project) {
     setForm({
-      id: p.id,
-      name: p.name,
-      category: p.category ?? "",
-      description: p.description ?? "",
-      status: p.status,
-      start_date: p.start_date ?? "",
-      target_date: p.target_date ?? "",
-      related_skill: p.related_skill ?? "",
-      related_course: p.related_course ?? "",
-      link: p.link ?? "",
-      notes: p.notes ?? "",
-      portfolio_status: p.portfolio_status,
+      id: project.id,
+      name: project.name,
+      category: project.category ?? "",
+      description: project.description ?? "",
+      status: project.status,
+      start_date: project.start_date ?? "",
+      target_date: project.target_date ?? "",
+      related_skill: project.related_skill ?? "",
+      related_course: project.related_course ?? "",
+      link: project.link ?? "",
+      notes: project.notes ?? "",
+      portfolio_status: project.portfolio_status,
     });
+
     setModalOpen(true);
+  }
+
+  async function openDetail(project: Project) {
+    setSelectedProject(project);
+    setUpdates([]);
+    setUpdateContent("");
+    setUpdateDate(new Date().toISOString().slice(0, 10));
+    setDetailOpen(true);
+    await loadUpdates(project.id);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+
     const payload = {
       name: form.name,
       category: form.category || null,
@@ -94,19 +183,62 @@ export default function ProjectsPage() {
       portfolio_status: form.portfolio_status,
       semester_id: currentSemesterId,
     };
+
     if (form.id) {
       await supabase.from("projects").update(payload).eq("id", form.id);
     } else {
       const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("projects").insert({ ...payload, user_id: userData.user!.id });
+
+      if (userData.user) {
+        await supabase.from("projects").insert({
+          ...payload,
+          user_id: userData.user.id,
+        });
+      }
     }
+
     setModalOpen(false);
     load();
   }
 
+  async function addUpdate(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!selectedProject || !updateContent.trim()) return;
+
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) return;
+
+    await supabase.from("project_updates").insert({
+      user_id: userData.user.id,
+      project_id: selectedProject.id,
+      update_date: updateDate,
+      content: updateContent.trim(),
+    });
+
+    setUpdateContent("");
+    await loadUpdates(selectedProject.id);
+  }
+
+  async function deleteUpdate(id: string) {
+    await supabase.from("project_updates").delete().eq("id", id);
+
+    if (selectedProject) {
+      await loadUpdates(selectedProject.id);
+    }
+  }
+
   async function remove(id: string) {
     if (!confirm("Hapus project ini?")) return;
+
     await supabase.from("projects").delete().eq("id", id);
+
+    if (selectedProject?.id === id) {
+      setSelectedProject(null);
+      setDetailOpen(false);
+    }
+
     load();
   }
 
@@ -123,11 +255,15 @@ export default function ProjectsPage() {
       />
 
       <div className="mb-4">
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="!w-auto">
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="!w-auto"
+        >
           <option value="">Semua Status</option>
-          {STATUSES.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
+          {STATUSES.map((status) => (
+            <option key={status.id} value={status.id}>
+              {status.label}
             </option>
           ))}
         </Select>
@@ -139,93 +275,411 @@ export default function ProjectsPage() {
         <EmptyState text="Belum ada project." />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filtered.map((p) => {
-            const s = STATUSES.find((x) => x.id === p.status)!;
+          {filtered.map((project) => {
+            const status = STATUSES.find(
+              (item) => item.id === project.status
+            )!;
+            const progress = getProgress(project.id);
+
             return (
-              <Card key={p.id}>
+              <Card key={project.id}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-900">{p.name}</p>
-                    <p className="text-xs text-zinc-500">{p.category || "-"}</p>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => openDetail(project)}
+                      className="truncate text-left text-sm font-medium text-zinc-900 hover:text-indigo-600"
+                    >
+                      {project.name}
+                    </button>
+
+                    <p className="text-xs text-zinc-500">
+                      {project.category || "-"}
+                    </p>
                   </div>
+
                   <div className="flex shrink-0 gap-2">
-                    <button onClick={() => openEdit(p)} className="text-zinc-400 hover:text-zinc-700">
+                    <button
+                      onClick={() => openEdit(project)}
+                      className="text-zinc-400 hover:text-zinc-700"
+                    >
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => remove(p.id)} className="text-zinc-400 hover:text-red-600">
+
+                    <button
+                      onClick={() => remove(project.id)}
+                      className="text-zinc-400 hover:text-red-600"
+                    >
                       <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
-                {p.description && <p className="mt-1.5 line-clamp-2 text-xs text-zinc-600">{p.description}</p>}
+
+                {project.description && (
+                  <p className="mt-1.5 line-clamp-2 text-xs text-zinc-600">
+                    {project.description}
+                  </p>
+                )}
+
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge color={s.color}>{s.label}</Badge>
-                  {p.portfolio_status !== "no" && (
-                    <Badge color={p.portfolio_status === "yes" ? "emerald" : "amber"}>portfolio: {p.portfolio_status}</Badge>
+                  <Badge color={status.color}>{status.label}</Badge>
+
+                  {project.portfolio_status !== "no" && (
+                    <Badge
+                      color={
+                        project.portfolio_status === "yes"
+                          ? "emerald"
+                          : "amber"
+                      }
+                    >
+                      portfolio: {project.portfolio_status}
+                    </Badge>
                   )}
-                  {p.link && (
-                    <a href={p.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+
+                  {project.link && (
+                    <a
+                      href={project.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                    >
                       <LinkIcon size={11} /> link
                     </a>
                   )}
                 </div>
+
+                <button
+                  onClick={() => openDetail(project)}
+                  className="mt-3 w-full rounded-lg bg-zinc-50 px-3 py-2 text-left hover:bg-zinc-100"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-zinc-600">
+                      Task Progress
+                    </span>
+
+                    <span className="text-zinc-500">
+                      {progress.total === 0
+                        ? "Belum ada task"
+                        : progress.done +
+                          " / " +
+                          progress.total +
+                          " selesai — " +
+                          progress.percent +
+                          "%"}
+                    </span>
+                  </div>
+
+                  {progress.total > 0 && (
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                      <div
+                        className="h-full rounded-full bg-indigo-500"
+                        style={{ width: progress.percent + "%" }}
+                      />
+                    </div>
+                  )}
+                </button>
               </Card>
             );
           })}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Edit Project" : "Project Baru"}>
-        <form onSubmit={save} className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+      <Modal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title={selectedProject?.name ?? "Project"}
+      >
+        {selectedProject && (
+          <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  color={
+                    STATUSES.find(
+                      (status) => status.id === selectedProject.status
+                    )?.color ?? "zinc"
+                  }
+                >
+                  {STATUSES.find(
+                    (status) => status.id === selectedProject.status
+                  )?.label ?? selectedProject.status}
+                </Badge>
+
+                {selectedProject.category && (
+                  <span className="text-xs text-zinc-500">
+                    {selectedProject.category}
+                  </span>
+                )}
+              </div>
+
+              {selectedProject.description && (
+                <p className="mt-2 text-sm text-zinc-600">
+                  {selectedProject.description}
+                </p>
+              )}
+            </div>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-900">
+                Related Tasks
+              </h3>
+
+              {(() => {
+                const related = getProjectTasks(selectedProject.id);
+                const progress = getProgress(selectedProject.id);
+
+                if (related.length === 0) {
+                  return (
+                    <p className="text-xs text-zinc-400">
+                      Belum ada task yang terhubung ke project ini.
+                    </p>
+                  );
+                }
+
+                return (
+                  <div>
+                    <div className="mb-2 text-xs text-zinc-500">
+                      {progress.done} / {progress.total} task selesai —{" "}
+                      {progress.percent}%
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {related.map((task) => (
+                        <div
+                          key={task.id}
+                          className="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-3 py-2"
+                        >
+                          <span
+                            className={
+                              task.status === "done"
+                                ? "text-xs text-zinc-400 line-through"
+                                : "text-xs text-zinc-700"
+                            }
+                          >
+                            {task.title}
+                          </span>
+
+                          <Badge
+                            color={
+                              task.status === "done" ? "emerald" : "zinc"
+                            }
+                          >
+                            {task.status === "done"
+                              ? "Done"
+                              : task.status.replace("_", " ")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </section>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-900">
+                Project Update Log
+              </h3>
+
+              <form onSubmit={addUpdate} className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    type="date"
+                    value={updateDate}
+                    onChange={(e) => setUpdateDate(e.target.value)}
+                  />
+
+                  <div className="col-span-2">
+                    <Input
+                      value={updateContent}
+                      onChange={(e) => setUpdateContent(e.target.value)}
+                      placeholder="Contoh: UMKM sudah dipilih dan owner sudah dihubungi"
+                    />
+                  </div>
+                </div>
+
+                <Button type="submit">Tambah Update</Button>
+              </form>
+
+              <div className="mt-3 space-y-2">
+                {updates.length === 0 ? (
+                  <p className="text-xs text-zinc-400">
+                    Belum ada update project.
+                  </p>
+                ) : (
+                  updates.map((update) => (
+                    <div
+                      key={update.id}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-zinc-100 px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-[11px] font-medium text-zinc-400">
+                          {new Date(
+                            update.update_date + "T00:00:00"
+                          ).toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-zinc-700">
+                          {update.content}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => deleteUpdate(update.id)}
+                        className="shrink-0 text-zinc-300 hover:text-red-500"
+                        title="Hapus update"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={form.id ? "Edit Project" : "Project Baru"}
+      >
+        <form
+          onSubmit={save}
+          className="max-h-[70vh] space-y-3 overflow-y-auto pr-1"
+        >
           <Field label="Nama Project">
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Input
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              required
+            />
           </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
-              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Kuliah / Personal / Community" />
+              <Input
+                value={form.category}
+                onChange={(e) =>
+                  setForm({ ...form, category: e.target.value })
+                }
+                placeholder="Kuliah / Personal / Community"
+              />
             </Field>
+
             <Field label="Status">
-              <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ProjectStatus })}>
-                {STATUSES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
+              <Select
+                value={form.status}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    status: e.target.value as ProjectStatus,
+                  })
+                }
+              >
+                {STATUSES.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.label}
                   </option>
                 ))}
               </Select>
             </Field>
           </div>
+
           <Field label="Description">
-            <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+            />
           </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start Date">
-              <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              <Input
+                type="date"
+                value={form.start_date}
+                onChange={(e) =>
+                  setForm({ ...form, start_date: e.target.value })
+                }
+              />
             </Field>
+
             <Field label="Target Date">
-              <Input type="date" value={form.target_date} onChange={(e) => setForm({ ...form, target_date: e.target.value })} />
+              <Input
+                type="date"
+                value={form.target_date}
+                onChange={(e) =>
+                  setForm({ ...form, target_date: e.target.value })
+                }
+              />
             </Field>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Related Skill">
-              <Input value={form.related_skill} onChange={(e) => setForm({ ...form, related_skill: e.target.value })} />
+              <Input
+                value={form.related_skill}
+                onChange={(e) =>
+                  setForm({ ...form, related_skill: e.target.value })
+                }
+              />
             </Field>
+
             <Field label="Related Course">
-              <Input value={form.related_course} onChange={(e) => setForm({ ...form, related_course: e.target.value })} />
+              <Input
+                value={form.related_course}
+                onChange={(e) =>
+                  setForm({ ...form, related_course: e.target.value })
+                }
+              />
             </Field>
           </div>
+
           <Field label="Link / Files">
-            <Input value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://..." />
+            <Input
+              value={form.link}
+              onChange={(e) =>
+                setForm({ ...form, link: e.target.value })
+              }
+              placeholder="https://..."
+            />
           </Field>
+
           <Field label="Notes">
-            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <Textarea
+              rows={2}
+              value={form.notes}
+              onChange={(e) =>
+                setForm({ ...form, notes: e.target.value })
+              }
+            />
           </Field>
+
           <Field label="Portfolio Status">
-            <Select value={form.portfolio_status} onChange={(e) => setForm({ ...form, portfolio_status: e.target.value as PortfolioStatus })}>
+            <Select
+              value={form.portfolio_status}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  portfolio_status: e.target.value as PortfolioStatus,
+                })
+              }
+            >
               <option value="no">No</option>
               <option value="maybe">Maybe</option>
               <option value="yes">Yes</option>
             </Select>
           </Field>
+
           <div className="flex justify-between pt-2">
             {form.id ? (
               <Button
@@ -241,6 +695,7 @@ export default function ProjectsPage() {
             ) : (
               <span />
             )}
+
             <Button type="submit">Simpan</Button>
           </div>
         </form>

@@ -50,6 +50,8 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [monthlyPlan, setMonthlyPlan] = useState<any>(null);
+  const [semesterPlan, setSemesterPlan] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -67,10 +69,34 @@ export default function DashboardPage() {
         projectQuery = projectQuery.eq("semester_id", currentSemesterId);
       }
 
-      const [{ data: t }, { data: l }, { data: p }] = await Promise.all([taskQuery, learningQuery, projectQuery]);
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
+      const [{ data: t }, { data: l }, { data: p }, { data: mp }, { data: sp }] = await Promise.all([
+        taskQuery,
+        learningQuery,
+        projectQuery,
+        currentSemesterId
+          ? supabase
+              .from("monthly_plans")
+              .select("*")
+              .eq("semester_id", currentSemesterId)
+              .eq("month_start", monthStart)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        currentSemesterId
+          ? supabase
+              .from("semester_plans")
+              .select("*")
+              .eq("semester_id", currentSemesterId)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
       setTasks((t as Task[]) ?? []);
       setLearning((l as LearningItem[]) ?? []);
       setProjects((p as Project[]) ?? []);
+      setMonthlyPlan(mp ?? null);
+      setSemesterPlan(sp ?? null);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,6 +123,55 @@ export default function DashboardPage() {
             <StatCard label="Active Learning" value={learning.length} />
             <StatCard label="Active Projects" value={projects.length} />
           </div>
+
+          <Card className="!p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Fokus Saat Ini</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Pengingat arah dari planning yang sedang berjalan.
+                </p>
+              </div>
+              <Link
+                href="/planning"
+                className="shrink-0 text-xs text-indigo-600 hover:underline"
+              >
+                Lihat Planning ?
+              </Link>
+            </div>
+
+            {monthlyPlan || semesterPlan ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg bg-zinc-50 p-3">
+                  <p className="text-xs font-medium text-zinc-500">Bulan Ini</p>
+                  <p className="mt-1 text-sm text-zinc-800">
+                    {monthlyPlan?.focus || "Belum ada fokus bulan."}
+                  </p>
+                  {monthlyPlan?.priorities && (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Prioritas: {monthlyPlan.priorities}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-zinc-50 p-3">
+                  <p className="text-xs font-medium text-zinc-500">Semester Ini</p>
+                  <p className="mt-1 text-sm text-zinc-800">
+                    {semesterPlan?.focus || "Belum ada fokus semester."}
+                  </p>
+                  {semesterPlan?.priorities && (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Prioritas: {semesterPlan.priorities}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-zinc-500">
+                Belum ada planning untuk periode ini.
+              </p>
+            )}
+          </Card>
 
           <section>
             <SectionTitle title="Today / Current" href="/tasks" />
@@ -157,21 +232,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section>
-            <p className="mb-2 text-sm font-semibold text-zinc-900">Quick Access</p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-7">
-              {QUICK_ACCESS.map((q) => (
-                <Link
-                  key={q.href}
-                  href={q.href}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-zinc-200 bg-white p-3 text-center text-xs font-medium text-zinc-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600"
-                >
-                  <q.icon size={18} />
-                  {q.label}
-                </Link>
-              ))}
-            </div>
-          </section>
+
         </div>
       )}
     </div>
@@ -217,3 +278,5 @@ function TaskRow({ task, overdue }: { task: Task; overdue?: boolean }) {
     </Card>
   );
 }
+
+

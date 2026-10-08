@@ -13,6 +13,16 @@ const STATUSES: { id: LearningStatus; label: string; color: "zinc" | "indigo" | 
   { id: "completed", label: "Completed", color: "emerald" },
 ];
 
+function fmtLearningDate(d: string | null) {
+  if (!d) return "—";
+
+  return new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 const emptyForm = {
   id: "" as string | null,
   skill_topic: "",
@@ -145,7 +155,18 @@ export default function LearningPage() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 space-y-0.5 text-xs text-zinc-500">
+                  <p>
+                    <span className="font-medium text-zinc-600">Mulai:</span>{" "}
+                    {fmtLearningDate(i.start_date)}
+                  </p>
+                  <p>
+                    <span className="font-medium text-zinc-600">Target:</span>{" "}
+                    {fmtLearningDate(i.target_date)}
+                  </p>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
                   <Badge color={s.color}>{s.label}</Badge>
                   <div className="h-1.5 flex-1 rounded-full bg-zinc-100">
                     <div className="h-1.5 rounded-full bg-indigo-500" style={{ width: `${i.progress}%` }} />

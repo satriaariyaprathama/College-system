@@ -11,6 +11,7 @@ import {
   Star,
   CalendarClock,
   ClipboardList,
+  CalendarRange,
   Settings,
   LogOut,
   Menu,
@@ -28,10 +29,11 @@ const NAV = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/portfolio", label: "Portfolio", icon: Star },
   { href: "/timeline", label: "Timeline", icon: CalendarClock },
+  { href: "/planning", label: "Planning", icon: CalendarRange },
   { href: "/review", label: "Review", icon: ClipboardList },
 ];
 
-const MOBILE_NAV = [NAV[0], NAV[1], NAV[3], NAV[4], NAV[7]];
+const MOBILE_NAV = NAV;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -144,23 +146,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-200 bg-white/95 backdrop-blur md:hidden">
-        {MOBILE_NAV.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
-                active ? "text-indigo-600" : "text-zinc-500"
-              }`}
-            >
-              <Icon size={18} />
-              {item.label.split(" ")[0]}
-            </Link>
-          );
-        })}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur md:hidden">
+        <div className="flex overflow-x-auto overscroll-x-contain scrollbar-none">
+          {MOBILE_NAV.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex min-w-[76px] shrink-0 flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-medium ${
+                  active ? "text-indigo-600" : "text-zinc-500"
+                }`}
+              >
+                <Icon size={18} />
+                <span>{item.label.split(" ")[0]}</span>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );
@@ -190,3 +194,5 @@ function SemesterSelect({
     </select>
   );
 }
+
+
