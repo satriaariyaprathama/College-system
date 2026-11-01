@@ -129,10 +129,14 @@ export default function SemesterReviewTab() {
     }
 
     const [
-      { data: reviewData },
-      { data: planData },
-      { data: courseData },
+      { data: reviewData, error: reviewErr },
+      { data: planData, error: planErr },
+      { data: courseData, error: courseErr },
     ] = await Promise.all([reviewQuery, planQuery, courseQuery]);
+
+    if (reviewErr) console.error("Gagal memuat semester review:", reviewErr);
+    if (planErr) console.error("Gagal memuat semester plan:", planErr);
+    if (courseErr) console.error("Gagal memuat courses:", courseErr);
 
     setReviews((reviewData as SemesterReview[]) ?? []);
     setSemesterPlan(planData && planData.length > 0 ? (planData[0] as SemesterPlan) : null);

@@ -23,11 +23,14 @@ export function SemesterProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("semesters")
       .select("*")
       .order("academic_year", { ascending: true })
       .order("semester_number", { ascending: true });
+    if (error) {
+      console.error("Gagal memuat data semester:", error);
+    }
     const list = (data as Semester[]) ?? [];
     setSemesters(list);
 

@@ -17,7 +17,7 @@ export default function PortfolioShowcaseTab() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: projects }, { data: sems }] = await Promise.all([
+      const [{ data: projects, error: projectsErr }, { data: sems, error: semsErr }] = await Promise.all([
         supabase
           .from("projects")
           .select("*")
@@ -25,6 +25,10 @@ export default function PortfolioShowcaseTab() {
           .order("created_at", { ascending: false }),
         supabase.from("semesters").select("*"),
       ]);
+
+      if (projectsErr) console.error("Gagal memuat portofolio:", projectsErr);
+      if (semsErr) console.error("Gagal memuat semesters portofolio:", semsErr);
+
       setItems((projects as Project[]) ?? []);
       setSemesters((sems as Semester[]) ?? []);
       setLoading(false);

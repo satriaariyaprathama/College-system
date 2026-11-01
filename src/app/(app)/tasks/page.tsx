@@ -126,10 +126,14 @@ export default function TasksPage() {
     }
 
     const [
-      { data: taskData },
-      { data: projectData },
-      { data: courseData },
+      { data: taskData, error: taskErr },
+      { data: projectData, error: projectErr },
+      { data: courseData, error: courseErr },
     ] = await Promise.all([taskQuery, projectQuery, courseQuery]);
+
+    if (taskErr) console.error("Gagal memuat tasks:", taskErr);
+    if (projectErr) console.error("Gagal memuat projects:", projectErr);
+    if (courseErr) console.error("Gagal memuat courses:", courseErr);
 
     setTasks((taskData as Task[]) ?? []);
     setProjects((projectData as Project[]) ?? []);

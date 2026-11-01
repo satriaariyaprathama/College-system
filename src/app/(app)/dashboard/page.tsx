@@ -89,11 +89,14 @@ export default function DashboardPage() {
       // ignore
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("full_name")
       .eq("id", user.id)
       .single();
+    if (profileErr && profileErr.code !== "PGRST116") {
+      console.error("Gagal memuat profil dashboard:", profileErr);
+    }
     setName(profile?.full_name?.split(" ")[0] ?? "");
 
     let taskQuery = supabase
@@ -121,16 +124,21 @@ export default function DashboardPage() {
     }
 
     const [
-      { data: t },
-      { data: c },
-      { data: n },
-      { data: dpa },
+      { data: t, error: tErr },
+      { data: c, error: cErr },
+      { data: n, error: nErr },
+      { data: dpa, error: dpaErr },
     ] = await Promise.all([
       taskQuery,
       courseQuery,
       noteQuery,
       dpaQuery,
     ]);
+
+    if (tErr) console.error("Gagal memuat tugas dashboard:", tErr);
+    if (cErr) console.error("Gagal memuat mata kuliah dashboard:", cErr);
+    if (nErr) console.error("Gagal memuat catatan kuliah dashboard:", nErr);
+    if (dpaErr) console.error("Gagal memuat bimbingan DPA dashboard:", dpaErr);
 
     setTasks((t as Task[]) ?? []);
     setCourses((c as Course[]) ?? []);

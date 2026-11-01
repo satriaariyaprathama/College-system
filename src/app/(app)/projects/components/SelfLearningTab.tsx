@@ -47,7 +47,10 @@ export default function SelfLearningTab() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from("learning_items").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("learning_items").select("*").order("created_at", { ascending: false });
+    if (error) {
+      console.error("Gagal memuat learning items:", error);
+    }
     setItems((data as LearningItem[]) ?? []);
     setLoading(false);
   }

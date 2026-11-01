@@ -114,10 +114,13 @@ function ProjectsContent() {
       taskQuery = taskQuery.eq("semester_id", currentSemesterId);
     }
 
-    const [{ data: projectData }, { data: taskData }] = await Promise.all([
-      projectQuery,
-      taskQuery,
-    ]);
+    const [
+      { data: projectData, error: projErr },
+      { data: taskData, error: taskErr },
+    ] = await Promise.all([projectQuery, taskQuery]);
+
+    if (projErr) console.error("Gagal memuat projects:", projErr);
+    if (taskErr) console.error("Gagal memuat tasks:", taskErr);
 
     setItems((projectData as Project[]) ?? []);
     setTasks((taskData as Task[]) ?? []);
@@ -125,12 +128,14 @@ function ProjectsContent() {
   }
 
   async function loadUpdates(projectId: string) {
-    const { data } = await supabase
+    const { data, error: updateErr } = await supabase
       .from("project_updates")
       .select("*")
       .eq("project_id", projectId)
       .order("update_date", { ascending: false })
       .order("created_at", { ascending: false });
+
+    if (updateErr) console.error("Gagal memuat project updates:", updateErr);
 
     setUpdates((data as ProjectUpdate[]) ?? []);
   }

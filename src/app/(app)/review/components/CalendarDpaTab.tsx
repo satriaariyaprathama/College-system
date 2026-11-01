@@ -218,10 +218,13 @@ export default function CalendarDpaTab() {
       dpaQuery = dpaQuery.eq("semester_id", currentSemesterId);
     }
 
-    const [{ data: eventData }, { data: dpaData }] = await Promise.all([
+    const [{ data: eventData, error: eventErr }, { data: dpaData, error: dpaErr }] = await Promise.all([
       eventQuery,
       dpaQuery,
     ]);
+
+    if (eventErr) console.error("Gagal memuat academic events:", eventErr);
+    if (dpaErr) console.error("Gagal memuat DPA guidance:", dpaErr);
 
     setEvents((eventData as AcademicEvent[]) ?? []);
     setDpaList((dpaData as DpaGuidance[]) ?? []);

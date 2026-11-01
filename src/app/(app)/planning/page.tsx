@@ -96,7 +96,10 @@ export default function PlanningPage() {
       setLoading(true);
       setMessage("");
 
-      const [{ data: monthlyData }, { data: semesterData }] = await Promise.all([
+      const [
+        { data: monthlyData, error: monthlyErr },
+        { data: semesterData, error: semesterErr },
+      ] = await Promise.all([
         supabase
           .from("monthly_plans")
           .select("*")
@@ -110,6 +113,9 @@ export default function PlanningPage() {
           .eq("semester_id", currentSemesterId)
           .maybeSingle(),
       ]);
+
+      if (monthlyErr) console.error("Gagal memuat monthly plan:", monthlyErr);
+      if (semesterErr) console.error("Gagal memuat semester plan:", semesterErr);
 
       if (monthlyData) {
         setMonthly({
