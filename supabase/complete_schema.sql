@@ -24,6 +24,42 @@ create table if not exists public.semesters (
   created_at timestamptz default now()
 );
 
+-- ========== COURSES (Master Mata Kuliah & SIMERU) ==========
+create table if not exists public.courses (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  semester_id uuid references public.semesters(id) on delete cascade,
+  name text not null,
+  code text,                            -- e.g. "TIF101"
+  credits int not null default 3,       -- Bobot SKS
+  lecturer text,
+  day_of_week int check (day_of_week between 1 and 7), -- 1=Senin, 7=Minggu
+  start_time time,
+  end_time time,
+  room text,                            -- e.g. "Kampus 4, Lab 3.02"
+  color text default 'indigo',
+  elearning_url text,                   -- Deep link ke Moodle LMS UAD
+  whatsapp_group_url text,              -- Link grup WA kelas
+  total_meetings int not null default 14,
+  absent_count int not null default 0,  -- Kuota absen (maks 3 untuk 75%)
+  target_grade text default 'A',
+  created_at timestamptz default now()
+);
+
+-- ========== DPA GUIDANCE (3x Per Semester Milestone) ==========
+create table if not exists public.dpa_guidance (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  semester_id uuid not null references public.semesters(id) on delete cascade,
+  meeting_number int not null check (meeting_number between 1 and 3),
+  guidance_date date,
+  topic text,                           -- e.g. "Perwalian KRS Awal Semester"
+  notes text,
+  is_completed boolean not null default false,
+  created_at timestamptz default now(),
+  unique (user_id, semester_id, meeting_number)
+);
+
 -- ========== SELF LEARNING ==========
 create table if not exists public.learning_items (
   id uuid primary key default uuid_generate_v4(),
@@ -80,17 +116,27 @@ create table if not exists public.tasks (
   user_id uuid not null references auth.users(id) on delete cascade,
   semester_id uuid references public.semesters(id) on delete set null,
   project_id uuid references public.projects(id) on delete set null,
+  course_id uuid references public.courses(id) on delete set null,
   title text not null,
   source text not null default 'personal' check (source in ('elearning','dosen','personal')),
   course text,
   due_date timestamptz,
   status text not null default 'inbox' check (status in ('inbox','planned','in_progress','review','done')),
   priority text not null default 'medium' check (priority in ('low','medium','high')),
+  submission_state text not null default 'not_started' check (submission_state in ('not_started','drafting','ready_to_upload','submitted')),
   description text,
   link text,
   created_at timestamptz default now(),
   completed_at timestamptz
 );
+
+-- Backward compatibility for existing tables
+alter table public.tasks
+  add column if not exists course_id uuid references public.courses(id) on delete set null;
+
+alter table public.tasks
+  add column if not exists submission_state text not null default 'not_started'
+  check (submission_state in ('not_started','drafting','ready_to_upload','submitted'));
 
 -- ========== PROJECT UPDATES ==========
 create table if not exists public.project_updates (
@@ -108,6 +154,7 @@ create table if not exists public.lecture_notes (
   user_id uuid not null references auth.users(id) on delete cascade,
   semester_id uuid references public.semesters(id) on delete set null,
   project_id uuid references public.projects(id) on delete set null,
+  course_id uuid references public.courses(id) on delete set null,
   course text not null,
   meeting_number int,
   note_date date,
@@ -119,6 +166,10 @@ create table if not exists public.lecture_notes (
   link text,
   created_at timestamptz default now()
 );
+
+-- Backward compatibility for existing tables
+alter table public.lecture_notes
+  add column if not exists course_id uuid references public.courses(id) on delete set null;
 
 -- ========== ACADEMIC TIMELINE ==========
 create table if not exists public.academic_events (
@@ -223,6 +274,8 @@ create table if not exists public.semester_reviews (
 -- ========== ROW LEVEL SECURITY ==========
 alter table public.profiles enable row level security;
 alter table public.semesters enable row level security;
+alter table public.courses enable row level security;
+alter table public.dpa_guidance enable row level security;
 alter table public.learning_items enable row level security;
 alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
@@ -242,6 +295,14 @@ create policy "own profile" on public.profiles
 
 drop policy if exists "own semesters" on public.semesters;
 create policy "own semesters" on public.semesters
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own courses" on public.courses;
+create policy "own courses" on public.courses
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own dpa_guidance" on public.dpa_guidance;
+create policy "own dpa_guidance" on public.dpa_guidance
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "own learning_items" on public.learning_items;
@@ -292,15 +353,18 @@ create policy "own semester_reviews" on public.semester_reviews
 create index if not exists tasks_project_id_idx on public.tasks (project_id);
 create index if not exists idx_tasks_user_semester on public.tasks (user_id, semester_id);
 create index if not exists idx_tasks_due_date on public.tasks (due_date);
+create index if not exists idx_tasks_course_id on public.tasks (course_id);
+create index if not exists idx_courses_user_semester on public.courses (user_id, semester_id);
+create index if not exists idx_dpa_guidance_user_semester on public.dpa_guidance (user_id, semester_id);
 create index if not exists project_updates_project_id_date_idx on public.project_updates (project_id, update_date desc);
 create index if not exists idx_lecture_notes_user_semester on public.lecture_notes (user_id, semester_id);
+create index if not exists idx_lecture_notes_course_id on public.lecture_notes (course_id);
 create index if not exists idx_projects_user_semester on public.projects (user_id, semester_id);
 create index if not exists idx_learning_items_user_id on public.learning_items (user_id);
 create index if not exists idx_academic_events_user_date on public.academic_events (user_id, start_date);
 create index if not exists idx_semesters_user_id on public.semesters (user_id);
 
 -- ========== FUNCTIONS & TRIGGERS ==========
--- Auto-create a profile row when a new auth user signs up
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin

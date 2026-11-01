@@ -1,6 +1,7 @@
 export type TaskSource = "elearning" | "dosen" | "personal";
 export type TaskStatus = "inbox" | "planned" | "in_progress" | "review" | "done";
 export type Priority = "low" | "medium" | "high";
+export type SubmissionState = "not_started" | "drafting" | "ready_to_upload" | "submitted";
 export type LearningStatus = "planned" | "learning" | "paused" | "completed";
 export type ProjectStatus = "idea" | "planned" | "in_progress" | "completed" | "archived";
 export type PortfolioStatus = "no" | "maybe" | "yes";
@@ -17,6 +18,39 @@ export interface Semester {
   created_at: string;
 }
 
+export interface Course {
+  id: string;
+  user_id: string;
+  semester_id: string | null;
+  name: string;
+  code: string | null;
+  credits: number;
+  lecturer: string | null;
+  day_of_week: number | null; // 1=Senin, 7=Minggu
+  start_time: string | null;
+  end_time: string | null;
+  room: string | null;
+  color: string;
+  elearning_url: string | null;
+  whatsapp_group_url: string | null;
+  total_meetings: number;
+  absent_count: number;
+  target_grade: string | null;
+  created_at: string;
+}
+
+export interface DpaGuidance {
+  id: string;
+  user_id: string;
+  semester_id: string;
+  meeting_number: number; // 1, 2, or 3
+  guidance_date: string | null;
+  topic: string | null;
+  notes: string | null;
+  is_completed: boolean;
+  created_at: string;
+}
+
 export interface Task {
   id: string;
   user_id: string;
@@ -24,9 +58,11 @@ export interface Task {
   title: string;
   source: TaskSource;
   course: string | null;
+  course_id?: string | null;
   due_date: string | null;
   status: TaskStatus;
   priority: Priority;
+  submission_state: SubmissionState;
   description: string | null;
   link: string | null;
   project_id: string | null;
@@ -39,6 +75,7 @@ export interface LectureNote {
   user_id: string;
   semester_id: string | null;
   course: string;
+  course_id?: string | null;
   meeting_number: number | null;
   note_date: string | null;
   topic: string | null;

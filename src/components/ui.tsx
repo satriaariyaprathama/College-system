@@ -58,7 +58,15 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Badge({ children, color = "zinc" }: { children: ReactNode; color?: string }) {
+export function Badge({
+  children,
+  color = "zinc",
+  className = "",
+}: {
+  children: ReactNode;
+  color?: string;
+  className?: string;
+}) {
   const colors: Record<string, string> = {
     zinc: "bg-zinc-100 text-zinc-600",
     indigo: "bg-indigo-50 text-indigo-600",
@@ -68,7 +76,11 @@ export function Badge({ children, color = "zinc" }: { children: ReactNode; color
     sky: "bg-sky-50 text-sky-700",
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[color] ?? colors.zinc}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        colors[color] ?? colors.zinc
+      } ${className}`}
+    >
       {children}
     </span>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import {
@@ -24,7 +25,9 @@ import type {
 } from "@/lib/types";
 import { sanitizeUrl } from "@/lib/utils";
 import { formatLocalDateKey } from "@/lib/date";
-import { Plus, Pencil, Trash2, Link as LinkIcon, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Link as LinkIcon, X, FolderKanban, GraduationCap, Star } from "lucide-react";
+import SelfLearningTab from "./components/SelfLearningTab";
+import PortfolioShowcaseTab from "./components/PortfolioShowcaseTab";
 
 const STATUSES: {
   id: ProjectStatus;
@@ -54,8 +57,27 @@ const emptyForm = {
 };
 
 export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-zinc-400 py-6">Memuat modul Projects...</p>}>
+      <ProjectsContent />
+    </Suspense>
+  );
+}
+
+function ProjectsContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "projects" | "learning" | "portfolio") || "projects";
+
   const { currentSemesterId } = useSemesters();
+  const [activeTab, setActiveTab] = useState<"projects" | "learning" | "portfolio">(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") as "projects" | "learning" | "portfolio";
+    if (tabParam && (tabParam === "projects" || tabParam === "learning" || tabParam === "portfolio")) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const [items, setItems] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -271,37 +293,84 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Projects"
-        description="Semua project dari kuliah, self-learning, personal, maupun komunitas."
-        action={
-          <Button onClick={openCreate}>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200 pb-4">
+        <div>
+          <PageHeader
+            title="Projects, Skills & Portfolio"
+            description="Manajemen proyek kuliah, skill self-learning, dan etalase karya portofolio."
+          />
+        </div>
+
+        {activeTab === "projects" && (
+          <Button onClick={openCreate} className="shrink-0">
             <Plus size={15} /> Project Baru
           </Button>
-        }
-      />
-
-      <div className="mb-4">
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="!w-auto"
-        >
-          <option value="">Semua Status</option>
-          {STATUSES.map((status) => (
-            <option key={status.id} value={status.id}>
-              {status.label}
-            </option>
-          ))}
-        </Select>
+        )}
       </div>
 
-      {loading ? (
-        <p className="text-sm text-zinc-400">Memuat...</p>
-      ) : filtered.length === 0 ? (
-        <EmptyState text="Belum ada project." />
-      ) : (
+      {/* Tab Switcher */}
+      <div className="flex w-fit rounded-lg bg-zinc-100 p-1 text-xs sm:text-sm font-medium">
+        <button
+          onClick={() => setActiveTab("projects")}
+          className={`flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition ${
+            activeTab === "projects"
+              ? "bg-white text-zinc-900 shadow-xs font-semibold"
+              : "text-zinc-600 hover:text-zinc-900"
+          }`}
+        >
+          <FolderKanban size={15} />
+          Semua Proyek
+        </button>
+        <button
+          onClick={() => setActiveTab("learning")}
+          className={`flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition ${
+            activeTab === "learning"
+              ? "bg-white text-zinc-900 shadow-xs font-semibold"
+              : "text-zinc-600 hover:text-zinc-900"
+          }`}
+        >
+          <GraduationCap size={15} />
+          Self-Learning & Skills
+        </button>
+        <button
+          onClick={() => setActiveTab("portfolio")}
+          className={`flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition ${
+            activeTab === "portfolio"
+              ? "bg-white text-zinc-900 shadow-xs font-semibold"
+              : "text-zinc-600 hover:text-zinc-900"
+          }`}
+        >
+          <Star size={15} className="text-amber-500" />
+          Portfolio Showcase
+        </button>
+      </div>
+
+      {activeTab === "learning" && <SelfLearningTab />}
+      {activeTab === "portfolio" && <PortfolioShowcaseTab />}
+
+      {activeTab === "projects" && (
+        <>
+          <div className="mb-4">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="!w-auto"
+            >
+              <option value="">Semua Status</option>
+              {STATUSES.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {loading ? (
+            <p className="text-sm text-zinc-400">Memuat...</p>
+          ) : filtered.length === 0 ? (
+            <EmptyState text="Belum ada project." />
+          ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filtered.map((project) => {
             const status = STATUSES.find(
@@ -728,6 +797,8 @@ export default function ProjectsPage() {
           </div>
         </form>
       </Modal>
+        </>
+      )}
     </div>
   );
 }
