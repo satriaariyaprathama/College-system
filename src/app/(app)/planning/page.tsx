@@ -1,31 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Card, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
-
-type MonthlyPlan = {
-  id?: string;
-  semester_id: string | null;
-  month_start: string;
-  focus: string;
-  academic_goals: string;
-  project_goals: string;
-  priorities: string;
-  notes: string;
-};
-
-type SemesterPlan = {
-  id?: string;
-  semester_id: string;
-  focus: string;
-  academic_goals: string;
-  project_goals: string;
-  learning_goals: string;
-  priorities: string;
-  notes: string;
-};
+import type { MonthlyPlan, SemesterPlan } from "@/lib/types";
+import { getMonthStart } from "@/lib/date";
 
 export default function PlanningPage() {
   const supabase = createClient();
@@ -64,10 +44,7 @@ export default function PlanningPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  const [monthStart, setMonthStart] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  });
+  const [monthStart, setMonthStart] = useState(() => getMonthStart());
 
   const selectedYear = Number(monthStart.slice(0, 4));
   const selectedMonth = Number(monthStart.slice(5, 7));
@@ -192,9 +169,17 @@ export default function PlanningPage() {
     setSaving(true);
     setMessage("");
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSaving(false);
+      setMessage("Sesi login berakhir. Silakan login kembali.");
+      alert("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
+
     const { error } = await supabase.from("monthly_plans").upsert(
       {
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: user.id,
         semester_id: selectedSemesterId,
         month_start: monthStart,
         focus: monthly.focus,
@@ -210,6 +195,7 @@ export default function PlanningPage() {
 
     if (error) {
       setMessage(`Gagal menyimpan: ${error.message}`);
+      alert(`Gagal menyimpan: ${error.message}`);
       return;
     }
 
@@ -222,9 +208,17 @@ export default function PlanningPage() {
     setSaving(true);
     setMessage("");
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSaving(false);
+      setMessage("Sesi login berakhir. Silakan login kembali.");
+      alert("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
+
     const { error } = await supabase.from("semester_plans").upsert(
       {
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: user.id,
         semester_id: selectedSemesterId,
         focus: semester.focus,
         academic_goals: semester.academic_goals,
@@ -240,6 +234,7 @@ export default function PlanningPage() {
 
     if (error) {
       setMessage(`Gagal menyimpan: ${error.message}`);
+      alert(`Gagal menyimpan: ${error.message}`);
       return;
     }
 
@@ -348,7 +343,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Fokus Bulan</label>
                 <textarea
-                  value={monthly.focus}
+                  value={monthly.focus ?? ""}
                   onChange={(e) =>
                     setMonthly({ ...monthly, focus: e.target.value })
                   }
@@ -359,7 +354,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Target Akademik</label>
                 <textarea
-                  value={monthly.academic_goals}
+                  value={monthly.academic_goals ?? ""}
                   onChange={(e) =>
                     setMonthly({ ...monthly, academic_goals: e.target.value })
                   }
@@ -370,7 +365,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Fokus Project</label>
                 <textarea
-                  value={monthly.project_goals}
+                  value={monthly.project_goals ?? ""}
                   onChange={(e) =>
                     setMonthly({ ...monthly, project_goals: e.target.value })
                   }
@@ -381,7 +376,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Prioritas Bulan</label>
                 <textarea
-                  value={monthly.priorities}
+                  value={monthly.priorities ?? ""}
                   onChange={(e) =>
                     setMonthly({ ...monthly, priorities: e.target.value })
                   }
@@ -393,7 +388,7 @@ export default function PlanningPage() {
             <div>
               <label className="mb-2 block text-sm font-medium">Catatan</label>
               <textarea
-                value={monthly.notes}
+                value={monthly.notes ?? ""}
                 onChange={(e) =>
                   setMonthly({ ...monthly, notes: e.target.value })
                 }
@@ -444,7 +439,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Fokus Semester</label>
                 <textarea
-                  value={semester.focus}
+                  value={semester.focus ?? ""}
                   onChange={(e) =>
                     setSemester({ ...semester, focus: e.target.value })
                   }
@@ -455,7 +450,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Target Akademik</label>
                 <textarea
-                  value={semester.academic_goals}
+                  value={semester.academic_goals ?? ""}
                   onChange={(e) =>
                     setSemester({
                       ...semester,
@@ -469,7 +464,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Target Project</label>
                 <textarea
-                  value={semester.project_goals}
+                  value={semester.project_goals ?? ""}
                   onChange={(e) =>
                     setSemester({
                       ...semester,
@@ -483,7 +478,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Target Pengembangan Pembelajaran</label>
                 <textarea
-                  value={semester.learning_goals}
+                  value={semester.learning_goals ?? ""}
                   onChange={(e) =>
                     setSemester({
                       ...semester,
@@ -497,7 +492,7 @@ export default function PlanningPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium">Prioritas Semester</label>
                 <textarea
-                  value={semester.priorities}
+                  value={semester.priorities ?? ""}
                   onChange={(e) =>
                     setSemester({
                       ...semester,
@@ -512,7 +507,7 @@ export default function PlanningPage() {
             <div>
               <label className="mb-2 block text-sm font-medium">Catatan</label>
               <textarea
-                value={semester.notes}
+                value={semester.notes ?? ""}
                 onChange={(e) =>
                   setSemester({ ...semester, notes: e.target.value })
                 }

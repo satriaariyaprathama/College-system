@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
 import type { LearningItem, LearningStatus } from "@/lib/types";
+import { formatLocalDateKey } from "@/lib/date";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const STATUSES: { id: LearningStatus; label: string; color: "zinc" | "indigo" | "amber" | "emerald" }[] = [
@@ -53,6 +54,7 @@ export default function LearningPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = statusFilter ? items.filter((i) => i.status === statusFilter) : items;
@@ -90,13 +92,25 @@ export default function LearningPage() {
       notes: form.notes || null,
       start_date: form.start_date || null,
       target_date: form.target_date || null,
-      completed_date: form.status === "completed" ? new Date().toISOString().slice(0, 10) : null,
+      completed_date: form.status === "completed" ? formatLocalDateKey(new Date()) : null,
     };
     if (form.id) {
-      await supabase.from("learning_items").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("learning_items").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui learning item: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("learning_items").insert({ ...payload, user_id: userData.user!.id });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+      const { error } = await supabase.from("learning_items").insert({ ...payload, user_id: user.id });
+      if (error) {
+        alert(`Gagal menambahkan learning item: ${error.message}`);
+        return;
+      }
     }
     setModalOpen(false);
     load();
@@ -104,7 +118,11 @@ export default function LearningPage() {
 
   async function remove(id: string) {
     if (!confirm("Hapus item ini?")) return;
-    await supabase.from("learning_items").delete().eq("id", id);
+    const { error } = await supabase.from("learning_items").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus learning item: ${error.message}`);
+      return;
+    }
     load();
   }
 

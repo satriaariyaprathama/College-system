@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
 import type { Task, TaskStatus, TaskSource, Priority, Project } from "@/lib/types";
+import { formatMonthLabel, isPastDeadline } from "@/lib/date";
 import { Plus, Pencil, Trash2, List, Kanban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 const STATUSES: { id: TaskStatus; label: string }[] = [
@@ -30,16 +31,6 @@ const emptyForm = {
   link: "",
   project_id: "",
 };
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function isPastDeadline(t: Task) {
-  return !!t.due_date && new Date(t.due_date) < startOfToday();
-}
 
 export default function TasksPage() {
   const supabase = createClient();
@@ -164,10 +155,22 @@ export default function TasksPage() {
       completed_at: form.status === "done" ? new Date().toISOString() : null,
     };
     if (form.id) {
-      await supabase.from("tasks").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("tasks").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui task: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("tasks").insert({ ...payload, user_id: userData.user!.id });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+      const { error } = await supabase.from("tasks").insert({ ...payload, user_id: user.id });
+      if (error) {
+        alert(`Gagal menambahkan task: ${error.message}`);
+        return;
+      }
     }
     setModalOpen(false);
     load();
@@ -175,15 +178,23 @@ export default function TasksPage() {
 
   async function deleteTask(id: string) {
     if (!confirm("Hapus task ini?")) return;
-    await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus task: ${error.message}`);
+      return;
+    }
     load();
   }
 
   async function quickStatus(id: string, status: TaskStatus) {
-    await supabase
+    const { error } = await supabase
       .from("tasks")
       .update({ status, completed_at: status === "done" ? new Date().toISOString() : null })
       .eq("id", id);
+    if (error) {
+      alert(`Gagal memperbarui status: ${error.message}`);
+      return;
+    }
     load();
   }
 
@@ -334,7 +345,7 @@ function fmtDate(d: string | null) {
 }
 
 function isOverdue(t: Task) {
-  return !!t.due_date && t.status !== "done" && new Date(t.due_date) < new Date();
+  return t.status !== "done" && isPastDeadline(t.due_date);
 }
 
 function ListView({
@@ -487,7 +498,7 @@ function CalendarView({
         <button onClick={() => setMonth(new Date(year, m - 1, 1))} className="rounded-lg p-1.5 hover:bg-zinc-100">
           <ChevronLeft size={16} />
         </button>
-        <p className="text-sm font-medium">{month.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</p>
+        <p className="text-sm font-medium">{formatMonthLabel(month)}</p>
         <button onClick={() => setMonth(new Date(year, m + 1, 1))} className="rounded-lg p-1.5 hover:bg-zinc-100">
           <ChevronRight size={16} />
         </button>

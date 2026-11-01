@@ -22,6 +22,8 @@ import type {
   Task,
   ProjectUpdate,
 } from "@/lib/types";
+import { sanitizeUrl } from "@/lib/utils";
+import { formatLocalDateKey } from "@/lib/date";
 import { Plus, Pencil, Trash2, Link as LinkIcon, X } from "lucide-react";
 
 const STATUSES: {
@@ -67,8 +69,8 @@ export default function ProjectsPage() {
 
   const [form, setForm] = useState(emptyForm);
 
-  const [updateDate, setUpdateDate] = useState(
-    new Date().toISOString().slice(0, 10)
+  const [updateDate, setUpdateDate] = useState(() =>
+    formatLocalDateKey(new Date())
   );
   const [updateContent, setUpdateContent] = useState("");
 
@@ -161,7 +163,7 @@ export default function ProjectsPage() {
     setSelectedProject(project);
     setUpdates([]);
     setUpdateContent("");
-    setUpdateDate(new Date().toISOString().slice(0, 10));
+    setUpdateDate(formatLocalDateKey(new Date()));
     setDetailOpen(true);
     await loadUpdates(project.id);
   }
@@ -185,15 +187,26 @@ export default function ProjectsPage() {
     };
 
     if (form.id) {
-      await supabase.from("projects").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("projects").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui project: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
 
-      if (userData.user) {
-        await supabase.from("projects").insert({
-          ...payload,
-          user_id: userData.user.id,
-        });
+      const { error } = await supabase.from("projects").insert({
+        ...payload,
+        user_id: user.id,
+      });
+
+      if (error) {
+        alert(`Gagal menambahkan project: ${error.message}`);
+        return;
       }
     }
 
@@ -206,23 +219,34 @@ export default function ProjectsPage() {
 
     if (!selectedProject || !updateContent.trim()) return;
 
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
 
-    if (!userData.user) return;
-
-    await supabase.from("project_updates").insert({
-      user_id: userData.user.id,
+    const { error } = await supabase.from("project_updates").insert({
+      user_id: user.id,
       project_id: selectedProject.id,
       update_date: updateDate,
       content: updateContent.trim(),
     });
+
+    if (error) {
+      alert(`Gagal menambahkan update: ${error.message}`);
+      return;
+    }
 
     setUpdateContent("");
     await loadUpdates(selectedProject.id);
   }
 
   async function deleteUpdate(id: string) {
-    await supabase.from("project_updates").delete().eq("id", id);
+    const { error } = await supabase.from("project_updates").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus update: ${error.message}`);
+      return;
+    }
 
     if (selectedProject) {
       await loadUpdates(selectedProject.id);
@@ -232,7 +256,11 @@ export default function ProjectsPage() {
   async function remove(id: string) {
     if (!confirm("Hapus project ini?")) return;
 
-    await supabase.from("projects").delete().eq("id", id);
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus project: ${error.message}`);
+      return;
+    }
 
     if (selectedProject?.id === id) {
       setSelectedProject(null);
@@ -335,9 +363,9 @@ export default function ProjectsPage() {
                     </Badge>
                   )}
 
-                  {project.link && (
+                  {project.link && sanitizeUrl(project.link) && (
                     <a
-                      href={project.link}
+                      href={sanitizeUrl(project.link)!}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"

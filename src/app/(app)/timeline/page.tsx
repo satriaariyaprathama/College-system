@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
 import type { AcademicEvent } from "@/lib/types";
+import { formatLocalDateKey, formatMonthLabel } from "@/lib/date";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const TYPES = ["UTS", "UAS", "KRS", "Pembayaran", "Libur", "Administratif", "Lainnya"];
@@ -57,11 +58,7 @@ function AcademicCalendar({
     });
   }
 
-  const today = new Date();
-  const todayKey =
-    `${today.getFullYear()}-` +
-    `${String(today.getMonth() + 1).padStart(2, "0")}-` +
-    `${String(today.getDate()).padStart(2, "0")}`;
+  const todayKey = formatLocalDateKey(new Date());
 
   return (
     <Card className="!p-4">
@@ -75,10 +72,7 @@ function AcademicCalendar({
         </button>
 
         <p className="text-sm font-semibold text-zinc-900">
-          {month.toLocaleDateString("id-ID", {
-            month: "long",
-            year: "numeric",
-          })}
+          {formatMonthLabel(month)}
         </p>
 
         <button
@@ -200,10 +194,22 @@ export default function TimelinePage() {
       semester_id: currentSemesterId,
     };
     if (form.id) {
-      await supabase.from("academic_events").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("academic_events").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui event: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("academic_events").insert({ ...payload, user_id: userData.user!.id });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+      const { error } = await supabase.from("academic_events").insert({ ...payload, user_id: user.id });
+      if (error) {
+        alert(`Gagal menambahkan event: ${error.message}`);
+        return;
+      }
     }
     setModalOpen(false);
     load();
@@ -211,11 +217,15 @@ export default function TimelinePage() {
 
   async function remove(id: string) {
     if (!confirm("Hapus event ini?")) return;
-    await supabase.from("academic_events").delete().eq("id", id);
+    const { error } = await supabase.from("academic_events").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus event: ${error.message}`);
+      return;
+    }
     load();
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatLocalDateKey(new Date());
 
   return (
     <div>

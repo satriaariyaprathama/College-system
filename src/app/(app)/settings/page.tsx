@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Button, Card, Field, Input, Modal, PageHeader } from "@/components/ui";
@@ -17,6 +18,7 @@ const emptyForm = {
 };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const supabase = createClient();
   const { semesters, refresh, setCurrentSemesterId } = useSemesters();
   const [modalOpen, setModalOpen] = useState(false);
@@ -58,14 +60,33 @@ export default function SettingsPage() {
     };
 
     if (form.is_current) {
-      await supabase.from("semesters").update({ is_current: false }).neq("id", form.id || "00000000-0000-0000-0000-000000000000");
+      const { error: resetCurrentError } = await supabase
+        .from("semesters")
+        .update({ is_current: false })
+        .neq("id", form.id || "00000000-0000-0000-0000-000000000000");
+      if (resetCurrentError) {
+        alert(`Gagal mereset status semester aktif: ${resetCurrentError.message}`);
+        return;
+      }
     }
 
     if (form.id) {
-      await supabase.from("semesters").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("semesters").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui semester: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("semesters").insert({ ...payload, user_id: userData.user!.id });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+      const { error } = await supabase.from("semesters").insert({ ...payload, user_id: user.id });
+      if (error) {
+        alert(`Gagal menambahkan semester: ${error.message}`);
+        return;
+      }
     }
     setModalOpen(false);
     refresh();
@@ -73,13 +94,17 @@ export default function SettingsPage() {
 
   async function remove(id: string) {
     if (!confirm("Hapus semester ini? Data terkait (task, notes, dsb) tidak ikut terhapus tetapi akan lepas dari semester ini.")) return;
-    await supabase.from("semesters").delete().eq("id", id);
+    const { error } = await supabase.from("semesters").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus semester: ${error.message}`);
+      return;
+    }
     refresh();
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    router.push("/login");
   }
 
   return (

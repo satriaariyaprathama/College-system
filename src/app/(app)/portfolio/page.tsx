@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Badge, Card, EmptyState, PageHeader, Select } from "@/components/ui";
 import type { Project, Semester } from "@/lib/types";
+import { sanitizeUrl } from "@/lib/utils";
 import { Link as LinkIcon } from "lucide-react";
 
 export default function PortfolioPage() {
@@ -25,6 +26,7 @@ export default function PortfolioPage() {
       setSemesters((sems as Semester[]) ?? []);
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = items.filter((p) => (filter === "all" ? true : p.portfolio_status === filter));
@@ -56,24 +58,27 @@ export default function PortfolioPage() {
         <EmptyState text="Belum ada item portfolio. Tandai project sebagai 'Yes' atau 'Maybe' di halaman Projects." />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filtered.map((p) => (
-            <Card key={p.id}>
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium text-zinc-900">{p.name}</p>
-                <Badge color={p.portfolio_status === "yes" ? "emerald" : "amber"}>{p.portfolio_status}</Badge>
-              </div>
-              <p className="mt-1 text-xs text-zinc-500">{semesterLabel(p.semester_id)}</p>
-              {p.description && <p className="mt-1.5 line-clamp-3 text-xs text-zinc-600">{p.description}</p>}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {p.related_skill && <Badge>{p.related_skill}</Badge>}
-                {p.link && (
-                  <a href={p.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
-                    <LinkIcon size={11} /> link
-                  </a>
-                )}
-              </div>
-            </Card>
-          ))}
+          {filtered.map((p) => {
+            const safeLink = sanitizeUrl(p.link);
+            return (
+              <Card key={p.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-zinc-900">{p.name}</p>
+                  <Badge color={p.portfolio_status === "yes" ? "emerald" : "amber"}>{p.portfolio_status}</Badge>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">{semesterLabel(p.semester_id)}</p>
+                {p.description && <p className="mt-1.5 line-clamp-3 text-xs text-zinc-600">{p.description}</p>}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {p.related_skill && <Badge>{p.related_skill}</Badge>}
+                  {safeLink && (
+                    <a href={safeLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                      <LinkIcon size={11} /> link
+                    </a>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 

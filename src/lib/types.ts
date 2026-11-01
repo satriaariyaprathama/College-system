@@ -1,4 +1,4 @@
-﻿export type TaskSource = "elearning" | "dosen" | "personal";
+export type TaskSource = "elearning" | "dosen" | "personal";
 export type TaskStatus = "inbox" | "planned" | "in_progress" | "review" | "done";
 export type Priority = "low" | "medium" | "high";
 export type LearningStatus = "planned" | "learning" | "paused" | "completed";
@@ -109,6 +109,32 @@ export interface AcademicEvent {
   created_at: string;
 }
 
+export interface MonthlyPlan {
+  id?: string;
+  user_id?: string;
+  semester_id: string | null;
+  month_start: string;
+  focus: string | null;
+  academic_goals: string | null;
+  project_goals: string | null;
+  priorities: string | null;
+  notes: string | null;
+  created_at?: string;
+}
+
+export interface SemesterPlan {
+  id?: string;
+  user_id?: string;
+  semester_id: string;
+  focus: string | null;
+  academic_goals: string | null;
+  project_goals: string | null;
+  learning_goals: string | null;
+  priorities: string | null;
+  notes: string | null;
+  created_at?: string;
+}
+
 export interface WeeklyReview {
   id: string;
   user_id: string;
@@ -128,6 +154,22 @@ export interface WeeklyReview {
   created_at: string;
 }
 
+export interface MonthlyReview {
+  id: string;
+  user_id?: string;
+  semester_id: string | null;
+  month_start: string;
+  academic_done: string | null;
+  academic_pending: string | null;
+  academic_unclear: string | null;
+  learning_summary: string | null;
+  project_progress: string | null;
+  problems: string | null;
+  improvements: string | null;
+  next_focus: string | null;
+  created_at?: string;
+}
+
 export interface SemesterReview {
   id: string;
   user_id: string;
@@ -142,5 +184,3 @@ export interface SemesterReview {
   next_focus: string | null;
   created_at: string;
 }
-
-

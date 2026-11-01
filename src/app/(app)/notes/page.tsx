@@ -89,10 +89,22 @@ export default function NotesPage() {
       semester_id: currentSemesterId,
     };
     if (form.id) {
-      await supabase.from("lecture_notes").update(payload).eq("id", form.id);
+      const { error } = await supabase.from("lecture_notes").update(payload).eq("id", form.id);
+      if (error) {
+        alert(`Gagal memperbarui catatan: ${error.message}`);
+        return;
+      }
     } else {
-      const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("lecture_notes").insert({ ...payload, user_id: userData.user!.id });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+      const { error } = await supabase.from("lecture_notes").insert({ ...payload, user_id: user.id });
+      if (error) {
+        alert(`Gagal menambahkan catatan: ${error.message}`);
+        return;
+      }
     }
     setModalOpen(false);
     load();
@@ -100,7 +112,11 @@ export default function NotesPage() {
 
   async function remove(id: string) {
     if (!confirm("Hapus catatan ini?")) return;
-    await supabase.from("lecture_notes").delete().eq("id", id);
+    const { error } = await supabase.from("lecture_notes").delete().eq("id", id);
+    if (error) {
+      alert(`Gagal menghapus catatan: ${error.message}`);
+      return;
+    }
     load();
   }
 

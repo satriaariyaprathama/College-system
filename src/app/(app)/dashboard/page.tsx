@@ -5,42 +5,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
-import type { Task, LearningItem, Project } from "@/lib/types";
-import {
-  CheckSquare,
-  NotebookPen,
-  GraduationCap,
-  FolderKanban,
-  Star,
-  CalendarClock,
-  ClipboardList,
-  AlertCircle,
-} from "lucide-react";
-
-const QUICK_ACCESS = [
-  { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/notes", label: "Lecture Notes", icon: NotebookPen },
-  { href: "/learning", label: "Self-Learning", icon: GraduationCap },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/portfolio", label: "Portfolio", icon: Star },
-  { href: "/timeline", label: "Academic Timeline", icon: CalendarClock },
-  { href: "/review", label: "Weekly Review", icon: ClipboardList },
-];
-
-function startOfWeek() {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-function endOfWeek() {
-  const s = startOfWeek();
-  const e = new Date(s);
-  e.setDate(e.getDate() + 7);
-  return e;
-}
+import type { Task, LearningItem, Project, MonthlyPlan, SemesterPlan } from "@/lib/types";
+import { getStartOfWeek, getEndOfWeek, getMonthStart, isPastDeadline } from "@/lib/date";
+import { AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -50,18 +17,22 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
-  const [monthlyPlan, setMonthlyPlan] = useState<any>(null);
-  const [semesterPlan, setSemesterPlan] = useState<any>(null);
+  const [monthlyPlan, setMonthlyPlan] = useState<MonthlyPlan | null>(null);
+  const [semesterPlan, setSemesterPlan] = useState<SemesterPlan | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: userData } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userData.user!.id).single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
       setName(profile?.full_name?.split(" ")[0] ?? "");
 
       let taskQuery = supabase.from("tasks").select("*").neq("status", "done").order("due_date", { ascending: true, nullsFirst: false });
-      let learningQuery = supabase.from("learning_items").select("*").eq("status", "learning");
+      const learningQuery = supabase.from("learning_items").select("*").eq("status", "learning");
       let projectQuery = supabase.from("projects").select("*").eq("status", "in_progress");
 
       if (currentSemesterId) {
@@ -69,8 +40,7 @@ export default function DashboardPage() {
         projectQuery = projectQuery.eq("semester_id", currentSemesterId);
       }
 
-      const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const monthStart = getMonthStart();
 
       const [{ data: t }, { data: l }, { data: p }, { data: mp }, { data: sp }] = await Promise.all([
         taskQuery,
@@ -95,18 +65,21 @@ export default function DashboardPage() {
       setTasks((t as Task[]) ?? []);
       setLearning((l as LearningItem[]) ?? []);
       setProjects((p as Project[]) ?? []);
-      setMonthlyPlan(mp ?? null);
-      setSemesterPlan(sp ?? null);
+      setMonthlyPlan((mp as MonthlyPlan) ?? null);
+      setSemesterPlan((sp as SemesterPlan) ?? null);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSemesterId]);
 
-  const now = new Date();
-  const overdue = tasks.filter((t) => t.due_date && new Date(t.due_date) < now);
-  const weekStart = startOfWeek();
-  const weekEnd = endOfWeek();
-  const thisWeek = tasks.filter((t) => t.due_date && new Date(t.due_date) >= weekStart && new Date(t.due_date) < weekEnd);
+  const overdue = tasks.filter((t) => isPastDeadline(t.due_date));
+  const weekStart = getStartOfWeek();
+  const weekEnd = getEndOfWeek();
+  const thisWeek = tasks.filter((t) => {
+    if (!t.due_date) return false;
+    const d = new Date(t.due_date);
+    return d >= weekStart && d <= weekEnd;
+  });
   const upcoming = tasks.filter((t) => !overdue.includes(t)).slice(0, 6);
 
   return (
