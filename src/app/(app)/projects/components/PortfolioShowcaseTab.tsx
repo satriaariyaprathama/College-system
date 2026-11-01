@@ -39,7 +39,7 @@ export default function PortfolioShowcaseTab() {
   function semesterLabel(id: string | null) {
     const s = semesters.find((x) => x.id === id);
     if (!s) return "-";
-    return s.label || `${s.academic_year} · Smt ${s.semester_number}`;
+    return s.label || `${s.academic_year} · Semester ${s.semester_number}`;
   }
 
   return (

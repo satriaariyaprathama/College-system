@@ -3,22 +3,33 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
-import { Button, Card, Field, Modal, Textarea } from "@/components/ui";
-import type { MonthlyReview } from "@/lib/types";
+import { Button, Card, Field, Modal, Textarea, Input } from "@/components/ui";
+import type { MonthlyPlan, MonthlyReview } from "@/lib/types";
 import { getMonthStart, formatMonthLabel } from "@/lib/date";
 import {
-  Plus,
   Pencil,
   BookOpen,
   AlertTriangle,
   Target,
-  CheckCircle2,
-  Calendar,
+  ClipboardList,
   Sparkles,
+  Compass,
+  Rocket,
 } from "lucide-react";
 
-const emptyMonthly = {
-  id: "" as string | null,
+const emptyMonthlyPlan: MonthlyPlan = {
+  semester_id: null,
+  month_start: getMonthStart(new Date()),
+  focus: "",
+  academic_goals: "",
+  project_goals: "",
+  priorities: "",
+  notes: "",
+};
+
+const emptyMonthlyReview: MonthlyReview = {
+  id: "",
+  semester_id: null,
   month_start: getMonthStart(new Date()),
   academic_done: "",
   academic_pending: "",
@@ -33,10 +44,17 @@ const emptyMonthly = {
 export default function MonthlyReviewTab() {
   const supabase = createClient();
   const { currentSemesterId } = useSemesters();
-  const [items, setItems] = useState<MonthlyReview[]>([]);
+
+  const [plans, setPlans] = useState<MonthlyPlan[]>([]);
+  const [reviews, setReviews] = useState<MonthlyReview[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(emptyMonthly);
+
+  // Dua modal terpisah
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+
+  const [planForm, setPlanForm] = useState(emptyMonthlyPlan);
+  const [reviewForm, setReviewForm] = useState(emptyMonthlyReview);
 
   const [selectedMonthStart, setSelectedMonthStart] = useState(() =>
     getMonthStart(new Date())
@@ -65,32 +83,44 @@ export default function MonthlyReviewTab() {
     (_, index) => new Date().getFullYear() - 3 + index
   );
 
-  const selectedReview = items.find(
+  const selectedPlan = plans.find(
+    (item) => item.month_start === selectedMonthStart
+  );
+
+  const selectedReview = reviews.find(
     (item) => item.month_start === selectedMonthStart
   );
 
   async function load() {
     setLoading(true);
 
-    let query = supabase
+    let planQuery = supabase
+      .from("monthly_plans")
+      .select("*")
+      .order("month_start", { ascending: false });
+
+    let reviewQuery = supabase
       .from("monthly_reviews")
       .select("*")
       .order("month_start", { ascending: false });
 
     if (currentSemesterId) {
-      query = query.eq("semester_id", currentSemesterId);
+      planQuery = planQuery.eq("semester_id", currentSemesterId);
+      reviewQuery = reviewQuery.eq("semester_id", currentSemesterId);
     }
 
-    const { data, error } = await query;
+    const [{ data: planData, error: planError }, { data: reviewData, error: reviewError }] =
+      await Promise.all([planQuery, reviewQuery]);
 
-    if (error) {
-      console.error("Gagal memuat Monthly Review:", error);
-      alert(`Gagal memuat Monthly Review: ${error.message}`);
-      setItems([]);
-    } else {
-      setItems((data as MonthlyReview[]) ?? []);
+    if (planError) {
+      console.error("Gagal memuat Monthly Plan:", planError);
+    }
+    if (reviewError) {
+      console.error("Gagal memuat Monthly Review:", reviewError);
     }
 
+    setPlans((planData as MonthlyPlan[]) ?? []);
+    setReviews((reviewData as MonthlyReview[]) ?? []);
     setLoading(false);
   }
 
@@ -99,95 +129,143 @@ export default function MonthlyReviewTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSemesterId]);
 
-  function openCreate() {
-    setForm({
-      ...emptyMonthly,
+  function openPlanModal() {
+    setPlanForm({
+      id: selectedPlan?.id,
+      semester_id: currentSemesterId,
       month_start: selectedMonthStart,
+      focus: selectedPlan?.focus ?? "",
+      academic_goals: selectedPlan?.academic_goals ?? "",
+      project_goals: selectedPlan?.project_goals ?? "",
+      priorities: selectedPlan?.priorities ?? "",
+      notes: selectedPlan?.notes ?? "",
     });
-    setModalOpen(true);
+    setPlanModalOpen(true);
   }
 
-  function openEdit(item: MonthlyReview) {
-    setForm({
-      id: item.id,
-      month_start: item.month_start,
-      academic_done: item.academic_done ?? "",
-      academic_pending: item.academic_pending ?? "",
-      academic_unclear: item.academic_unclear ?? "",
-      learning_summary: item.learning_summary ?? "",
-      project_progress: item.project_progress ?? "",
-      problems: item.problems ?? "",
-      improvements: item.improvements ?? "",
-      next_focus: item.next_focus ?? "",
+  function openReviewModal() {
+    setReviewForm({
+      id: selectedReview?.id ?? "",
+      semester_id: currentSemesterId,
+      month_start: selectedMonthStart,
+      academic_done: selectedReview?.academic_done ?? "",
+      academic_pending: selectedReview?.academic_pending ?? "",
+      academic_unclear: selectedReview?.academic_unclear ?? "",
+      learning_summary: selectedReview?.learning_summary ?? "",
+      project_progress: selectedReview?.project_progress ?? "",
+      problems: selectedReview?.problems ?? "",
+      improvements: selectedReview?.improvements ?? "",
+      next_focus: selectedReview?.next_focus ?? "",
     });
-    setModalOpen(true);
+    setReviewModalOpen(true);
   }
 
-  async function save(e: React.FormEvent) {
+  async function savePlan(e: React.FormEvent) {
     e.preventDefault();
-
     if (!currentSemesterId) {
-      alert("Pilih semester terlebih dahulu di sidebar/header.");
+      alert("Pilih semester terlebih dahulu di header.");
+      return;
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      alert("User tidak ditemukan atau sesi berakhir.");
       return;
     }
 
     const payload = {
-      ...form,
+      user_id: user.id,
       semester_id: currentSemesterId,
+      month_start: selectedMonthStart,
+      focus: planForm.focus?.trim() || null,
+      academic_goals: planForm.academic_goals?.trim() || null,
+      project_goals: planForm.project_goals?.trim() || null,
+      priorities: planForm.priorities?.trim() || null,
+      notes: planForm.notes?.trim() || null,
     };
 
-    delete (payload as Record<string, unknown>).id;
-
-    let error = null;
-
-    if (form.id) {
-      const result = await supabase
-        .from("monthly_reviews")
-        .update(payload)
-        .eq("id", form.id);
-
-      error = result.error;
-    } else {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        alert(
-          `Gagal mendapatkan user: ${
-            userError?.message ?? "User tidak ditemukan."
-          }`
-        );
-        return;
-      }
-
-      const result = await supabase.from("monthly_reviews").upsert(
-        {
-          ...payload,
-          user_id: user.id,
-        },
-        { onConflict: "user_id,month_start" }
-      );
-
-      error = result.error;
-    }
+    const { error } = await supabase.from("monthly_plans").upsert(payload, {
+      onConflict: "user_id,month_start",
+    });
 
     if (error) {
-      console.error("Gagal menyimpan Monthly Review:", error);
-      alert(`Gagal menyimpan Monthly Review: ${error.message}`);
+      alert(`Gagal menyimpan Rencana Bulanan: ${error.message}`);
       return;
     }
 
-    setModalOpen(false);
+    setPlanModalOpen(false);
+    await load();
+  }
+
+  async function saveReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentSemesterId) {
+      alert("Pilih semester terlebih dahulu di header.");
+      return;
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      alert("User tidak ditemukan atau sesi berakhir.");
+      return;
+    }
+
+    const payload = {
+      user_id: user.id,
+      semester_id: currentSemesterId,
+      month_start: selectedMonthStart,
+      academic_done: reviewForm.academic_done?.trim() || null,
+      academic_pending: reviewForm.academic_pending?.trim() || null,
+      academic_unclear: reviewForm.academic_unclear?.trim() || null,
+      learning_summary: reviewForm.learning_summary?.trim() || null,
+      project_progress: reviewForm.project_progress?.trim() || null,
+      problems: reviewForm.problems?.trim() || null,
+      improvements: reviewForm.improvements?.trim() || null,
+      next_focus: reviewForm.next_focus?.trim() || null,
+    };
+
+    const { error } = await supabase.from("monthly_reviews").upsert(payload, {
+      onConflict: "user_id,month_start",
+    });
+
+    if (error) {
+      alert(`Gagal menyimpan Evaluasi Bulanan: ${error.message}`);
+      return;
+    }
+
+    setReviewModalOpen(false);
     await load();
   }
 
   const currentMonthLabel = formatMonthLabel(selectedMonthStart);
 
+  const hasPlan = Boolean(
+    selectedPlan?.focus ||
+      selectedPlan?.academic_goals ||
+      selectedPlan?.project_goals ||
+      selectedPlan?.priorities
+  );
+
+  const hasReview = Boolean(
+    selectedReview?.academic_done ||
+      selectedReview?.learning_summary ||
+      selectedReview?.project_progress ||
+      selectedReview?.problems ||
+      selectedReview?.improvements ||
+      selectedReview?.next_focus
+  );
+
   return (
     <div className="space-y-6">
-      {/* 1. Header Horisontal (Pilih Bulan + Tombol Review) */}
+      {/* 1. Header Horisontal: Pilih Bulan + Dua Tombol Aksi Berdampingan */}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-200 pb-4">
         <div>
           <label className="mb-1 block text-xs font-semibold text-zinc-700">
@@ -231,333 +309,418 @@ export default function MonthlyReviewTab() {
           </div>
         </div>
 
-        <Button onClick={openCreate} className="shrink-0">
-          <Plus size={15} /> Review Bulan Ini
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={openPlanModal}
+            className="!text-xs !py-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+          >
+            <Target size={14} className="text-indigo-600" /> Atur Target Bulan
+          </Button>
+
+          <Button
+            onClick={openReviewModal}
+            className="!text-xs !py-1.5"
+          >
+            <ClipboardList size={14} /> Tulis Review Bulan
+          </Button>
+        </div>
       </div>
 
-      {/* 2. Open Debrief Board / Empty State */}
+      <div className="text-xs text-zinc-500 font-medium">
+        Periode Bulan: <span className="text-zinc-800 font-semibold">{currentMonthLabel}</span>
+      </div>
+
+      {/* 2. DUAL-PANEL LAYOUT (Berdampingan: Monthly Plan Kiri vs Monthly Review Kanan) */}
       {loading ? (
-        <p className="text-sm text-zinc-400 py-6">Memuat review bulanan...</p>
-      ) : !selectedReview ? (
-        /* Empty State Mengajak */
-        <Card className="!p-8 text-center border-dashed border-2 border-zinc-200 bg-zinc-50/50">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 mb-3">
-            <Calendar size={22} />
-          </div>
-          <h3 className="text-sm font-bold text-zinc-900">
-            Bulan {currentMonthLabel} belum dievaluasi
-          </h3>
-          <p className="mt-1 text-xs text-zinc-500 max-w-md mx-auto">
-            Luangkan waktu sejenak untuk meninjau capaian sebulan, mengidentifikasi
-            kendala perkuliahan, dan mengunci komitmen serta fokus bulan berikutnya.
-          </p>
-          <div className="mt-4">
-            <Button onClick={openCreate}>
-              <Sparkles size={14} /> Buat Review Sekarang
-            </Button>
-          </div>
-        </Card>
+        <p className="text-sm text-zinc-400 py-6">Memuat data bulanan...</p>
       ) : (
-        /* Open Debrief Board Bulanan Lengkap */
-        <Card className="!p-6 space-y-6 border-zinc-200 bg-white shadow-xs">
-          {/* Header Card */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 pb-4">
-            <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          {/* ======================================================== */}
+          {/* PANEL KIRI: 🎯 Monthly Plan (Target Bulan Ini)            */}
+          {/* ======================================================== */}
+          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                  <CheckCircle2 size={13} /> Evaluasi Bulanan Selesai
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <Target size={16} />
                 </span>
-                <span className="text-xs text-zinc-400">•</span>
-                <span className="text-xs text-zinc-500 font-medium">
-                  Periode: {currentMonthLabel}
-                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                    Monthly Plan (Target Bulan Ini)
+                  </h3>
+                  <span className="text-[10px] text-zinc-400">
+                    Disusun pada awal bulan
+                  </span>
+                </div>
               </div>
-              <h2 className="mt-1 text-base font-bold text-zinc-900">
-                Laporan Refleksi Bulanan: {currentMonthLabel}
-              </h2>
+
+              {hasPlan ? (
+                <button
+                  onClick={openPlanModal}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"
+                  title="Edit Target Plan"
+                >
+                  <Pencil size={12} /> Edit Target
+                </button>
+              ) : null}
             </div>
 
-            <Button
-              variant="secondary"
-              onClick={() => openEdit(selectedReview)}
-              className="shrink-0 !text-xs !py-1.5"
-            >
-              <Pencil size={13} /> Edit Review Bulanan
-            </Button>
-          </div>
-
-          {/* 3 Bagian Terstruktur Bulanan */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Bagian 1: Capaian Akademik Sebulan */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-indigo-800">
-                <BookOpen size={18} className="shrink-0 text-indigo-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  Capaian Akademik Sebulan
-                </h3>
+            {!hasPlan ? (
+              /* Empty state plan */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                  <Target size={18} />
+                </div>
+                <h4 className="text-xs font-bold text-zinc-800">
+                  Belum ada rencana untuk {currentMonthLabel}
+                </h4>
+                <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
+                  Tetapkan fokus utama, target mata kuliah, dan milestone proyek
+                  yang ingin dicapai dalam satu bulan ini.
+                </p>
+                <div className="pt-1">
+                  <Button
+                    variant="secondary"
+                    onClick={openPlanModal}
+                    className="!text-xs !py-1"
+                  >
+                    <Sparkles size={12} /> + Buat Target Bulan Ini
+                  </Button>
+                </div>
               </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-semibold text-zinc-700 block mb-0.5">
-                    Hasil & Pemahaman Materi:
-                  </span>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedReview.academic_done || (
-                      <span className="text-zinc-400 italic">
-                        Belum dicatat.
+            ) : (
+              /* Open Content Monthly Plan */
+              <div className="space-y-4 text-xs">
+                {/* 1. Fokus Utama */}
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
+                    <Compass size={14} className="text-indigo-600" />
+                    <span>Fokus Utama Bulan Ini</span>
+                  </div>
+                  <p className="text-zinc-800 font-bold text-sm leading-snug">
+                    {selectedPlan?.focus || (
+                      <span className="text-zinc-400 font-normal italic">
+                        Belum menentukan fokus utama.
                       </span>
                     )}
                   </p>
                 </div>
 
-                {selectedReview.learning_summary && (
-                  <div className="pt-2 border-t border-indigo-100/60">
-                    <span className="font-semibold text-zinc-700 block mb-0.5">
-                      Ringkasan Belajar Mandiri:
-                    </span>
-                    <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedReview.learning_summary}
-                    </p>
+                {/* 2. Target Akademik & Kuliah */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
+                    <BookOpen size={14} className="text-zinc-600" />
+                    <span>Target Akademik & Kuliah</span>
                   </div>
-                )}
-
-                {selectedReview.project_progress && (
-                  <div className="pt-2 border-t border-indigo-100/60">
-                    <span className="font-semibold text-zinc-700 block mb-0.5">
-                      Progres Proyek / Portofolio:
-                    </span>
-                    <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedReview.project_progress}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Bagian 2: Evaluasi Kendala & Peningkatan */}
-            <div className="rounded-xl border border-amber-100 bg-amber-50/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-amber-800">
-                <AlertTriangle size={18} className="shrink-0 text-amber-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  Kendala & Perbaikan Diri
-                </h3>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-semibold text-zinc-700 block mb-0.5">
-                    Hambatan & Kendala:
-                  </span>
                   <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedReview.problems || (
+                    {selectedPlan?.academic_goals || (
                       <span className="text-zinc-400 italic">
-                        Tidak ada hambatan signifikan.
+                        Tidak ada target khusus.
                       </span>
                     )}
                   </p>
                 </div>
 
-                {selectedReview.improvements && (
-                  <div className="pt-2 border-t border-amber-100/60">
-                    <span className="font-semibold text-zinc-700 block mb-0.5">
-                      Rencana Solusi & Perbaikan:
-                    </span>
-                    <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedReview.improvements}
-                    </p>
+                {/* 3. Target Proyek & Skill */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
+                    <Rocket size={14} className="text-zinc-600" />
+                    <span>Target Proyek & Skill</span>
                   </div>
-                )}
+                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedPlan?.project_goals || (
+                      <span className="text-zinc-400 italic">
+                        Tidak ada target proyek.
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-                {selectedReview.academic_unclear && (
-                  <div className="pt-2 border-t border-amber-100/60">
-                    <span className="font-semibold text-zinc-700 block mb-0.5">
-                      Materi Belum Terkuasai:
+                {/* 4. Prioritas Bulanan */}
+                {selectedPlan?.priorities && (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1">
+                    <span className="font-semibold text-zinc-700 block">
+                      Prioritas & Catatan:
                     </span>
                     <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedReview.academic_unclear}
+                      {selectedPlan.priorities}
                     </p>
                   </div>
                 )}
               </div>
+            )}
+          </Card>
+
+          {/* ======================================================== */}
+          {/* PANEL KANAN: 📋 Monthly Review (Evaluasi Hasil Bulan)      */}
+          {/* ======================================================== */}
+          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <ClipboardList size={16} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                    Monthly Review (Evaluasi Akhir Bulan)
+                  </h3>
+                  <span className="text-[10px] text-zinc-400">
+                    Disusun pada akhir bulan
+                  </span>
+                </div>
+              </div>
+
+              {hasReview ? (
+                <button
+                  onClick={openReviewModal}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition"
+                  title="Edit Review"
+                >
+                  <Pencil size={12} /> Edit Review
+                </button>
+              ) : null}
             </div>
 
-            {/* Bagian 3: Komitmen & Fokus Bulan Depan */}
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-800">
-                <Target size={18} className="shrink-0 text-emerald-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  Komitmen & Fokus Depan
-                </h3>
+            {!hasReview ? (
+              /* Empty state review */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <ClipboardList size={18} />
+                </div>
+                <h4 className="text-xs font-bold text-zinc-800">
+                  Review bulan {currentMonthLabel} belum ditulis
+                </h4>
+                <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
+                  Bandingkan realisasi pencapaian Anda dengan target di sebelah
+                  kiri dan formulasikan komitmen bulan depan.
+                </p>
+                <div className="pt-1">
+                  <Button onClick={openReviewModal} className="!text-xs !py-1">
+                    <Sparkles size={12} /> + Tulis Review Bulan Ini
+                  </Button>
+                </div>
               </div>
+            ) : (
+              /* Open Content Monthly Review */
+              <div className="space-y-4 text-xs">
+                {/* 1. Capaian Akademik Sebulan */}
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+                    <BookOpen size={14} className="text-emerald-600" />
+                    <span>Capaian Kuliah & Belajar Mandiri</span>
+                  </div>
+                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedReview?.academic_done || (
+                      <span className="text-zinc-400 italic">
+                        Tidak ada catatan capaian.
+                      </span>
+                    )}
+                  </p>
+                  {selectedReview?.learning_summary && (
+                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
+                      Skill: {selectedReview.learning_summary}
+                    </p>
+                  )}
+                  {selectedReview?.project_progress && (
+                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
+                      Proyek: {selectedReview.project_progress}
+                    </p>
+                  )}
+                </div>
 
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-semibold text-zinc-700 block mb-0.5">
-                    Target Utama Bulan Berikutnya:
-                  </span>
+                {/* 2. Hambatan & Masalah */}
+                <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                    <AlertTriangle size={14} className="text-amber-600" />
+                    <span>Kendala & Poin Perbaikan</span>
+                  </div>
+                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedReview?.problems || (
+                      <span className="text-zinc-400 italic">
+                        Tidak ada masalah signifikan.
+                      </span>
+                    )}
+                  </p>
+                  {selectedReview?.improvements && (
+                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-amber-100">
+                      Solusi: {selectedReview.improvements}
+                    </p>
+                  )}
+                  {selectedReview?.academic_unclear && (
+                    <p className="text-[11px] text-amber-700 pt-1 border-t border-amber-100">
+                      Materi belum paham: {selectedReview.academic_unclear}
+                    </p>
+                  )}
+                </div>
+
+                {/* 3. Fokus Bulan Depan */}
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
+                    <Target size={14} className="text-indigo-600" />
+                    <span>Komitmen & Fokus Bulan Depan</span>
+                  </div>
                   <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
-                    {selectedReview.next_focus || (
+                    {selectedReview?.next_focus || (
                       <span className="text-zinc-400 italic">
-                        Belum menentukan target.
+                        Belum menentukan fokus depan.
                       </span>
                     )}
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
-        </Card>
+            )}
+          </Card>
+        </div>
       )}
 
-      {/* 3. Modal Form: Alur Terstruktur Bulanan */}
+      {/* ======================================================== */}
+      {/* MODAL 1: ATUR TARGET BULAN (MONTHLY PLAN)                 */}
+      {/* ======================================================== */}
       <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Evaluasi Bulanan (Monthly Review)"
+        open={planModalOpen}
+        onClose={() => setPlanModalOpen(false)}
+        title="Atur Target Bulan (Monthly Plan)"
       >
-        <form
-          onSubmit={save}
-          className="max-h-[75vh] space-y-4 overflow-y-auto pr-1"
-        >
-          <Field label="Bulan Evaluasi">
-            <input
-              type="month"
-              value={form.month_start.slice(0, 7)}
+        <form onSubmit={savePlan} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+          <Field label="Fokus Utama Bulan Ini">
+            <Input
+              value={planForm.focus ?? ""}
               onChange={(e) =>
-                setForm({
-                  ...form,
-                  month_start: `${e.target.value}-01`,
-                })
+                setPlanForm({ ...planForm, focus: e.target.value })
               }
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              placeholder="Contoh: Menguasai SQL Kompleks & Selesaikan Proyek Web"
               required
             />
           </Field>
 
-          {/* FASE 1: Capaian Akademik Sebulan */}
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-3.5 space-y-3">
-            <div className="flex items-center gap-2 text-indigo-800">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
-                1
-              </span>
-              <p className="text-xs font-bold uppercase tracking-wider">
-                Capaian Akademik Sebulan
-              </p>
-            </div>
+          <Field label="Target Akademik & Kuliah">
+            <Textarea
+              rows={3}
+              value={planForm.academic_goals ?? ""}
+              onChange={(e) =>
+                setPlanForm({ ...planForm, academic_goals: e.target.value })
+              }
+              placeholder="Target nilai kuis, persiapan UTS/UAS, kehadiran 100%..."
+            />
+          </Field>
 
-            <Field label="Pencapaian Kuliah & Materi yang Berhasil Dikuasai">
-              <Textarea
-                rows={3}
-                value={form.academic_done}
-                onChange={(e) =>
-                  setForm({ ...form, academic_done: e.target.value })
-                }
-                placeholder="Materi yang sudah tuntas, kuis/UTS yang terlampaui..."
-              />
-            </Field>
+          <Field label="Target Proyek & Skill Portofolio">
+            <Textarea
+              rows={2}
+              value={planForm.project_goals ?? ""}
+              onChange={(e) =>
+                setPlanForm({ ...planForm, project_goals: e.target.value })
+              }
+              placeholder="Fitur aplikasi yang diselesaikan, teknologi baru yang dipelajari..."
+            />
+          </Field>
 
-            <Field label="Ringkasan Belajar Mandiri & Skill Baru">
-              <Textarea
-                rows={2}
-                value={form.learning_summary}
-                onChange={(e) =>
-                  setForm({ ...form, learning_summary: e.target.value })
-                }
-                placeholder="Teknologi baru yang dipelajari, sertifikasi, buku yang dibaca..."
-              />
-            </Field>
-
-            <Field label="Progres Proyek / Portofolio">
-              <Textarea
-                rows={2}
-                value={form.project_progress}
-                onChange={(e) =>
-                  setForm({ ...form, project_progress: e.target.value })
-                }
-                placeholder="Fitur atau repositori yang berhasil diselesaikan..."
-              />
-            </Field>
-          </div>
-
-          {/* FASE 2: Hambatan & Perbaikan */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-3.5 space-y-3">
-            <div className="flex items-center gap-2 text-amber-800">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[11px] font-bold text-white">
-                2
-              </span>
-              <p className="text-xs font-bold uppercase tracking-wider">
-                Evaluasi Hambatan & Solusi
-              </p>
-            </div>
-
-            <Field label="Kendala & Masalah yang Dihadapi">
-              <Textarea
-                rows={2}
-                value={form.problems}
-                onChange={(e) =>
-                  setForm({ ...form, problems: e.target.value })
-                }
-                placeholder="Manajemen waktu, materi dosen yang terlalu cepat, prokrastinasi..."
-              />
-            </Field>
-
-            <Field label="Langkah Perbaikan / Strategi Pemecahan">
-              <Textarea
-                rows={2}
-                value={form.improvements}
-                onChange={(e) =>
-                  setForm({ ...form, improvements: e.target.value })
-                }
-                placeholder="Solusi konkret: belajar kelompok, tanya asdos, blok fokus pagi hari..."
-              />
-            </Field>
-
-            <Field label="Materi yang Masih Belum Jelas (Opsional)">
-              <Textarea
-                rows={2}
-                value={form.academic_unclear}
-                onChange={(e) =>
-                  setForm({ ...form, academic_unclear: e.target.value })
-                }
-                placeholder="Konsep yang perlu di-review ulang..."
-              />
-            </Field>
-          </div>
-
-          {/* FASE 3: Komitmen Bulan Depan */}
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3.5 space-y-3">
-            <div className="flex items-center gap-2 text-emerald-800">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
-                3
-              </span>
-              <p className="text-xs font-bold uppercase tracking-wider">
-                Komitmen & Fokus Bulan Depan
-              </p>
-            </div>
-
-            <Field label="Target Kunci & Fokus Prioritas Bulan Depan">
-              <Textarea
-                rows={3}
-                value={form.next_focus}
-                onChange={(e) =>
-                  setForm({ ...form, next_focus: e.target.value })
-                }
-                placeholder="Target nilai UTS/UAS, menyelesaikan mini project, bimbingan DPA..."
-              />
-            </Field>
-          </div>
+          <Field label="Prioritas & Langkah Penting">
+            <Textarea
+              rows={2}
+              value={planForm.priorities ?? ""}
+              onChange={(e) =>
+                setPlanForm({ ...planForm, priorities: e.target.value })
+              }
+              placeholder="Daftar prioritas utama bulan ini..."
+            />
+          </Field>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setModalOpen(false)}
+              onClick={() => setPlanModalOpen(false)}
             >
               Batal
             </Button>
-            <Button type="submit">Simpan Review Bulanan</Button>
+            <Button type="submit">
+              <Target size={14} /> Simpan Target Plan
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* MODAL 2: TULIS REVIEW BULAN (MONTHLY REVIEW)              */}
+      {/* ======================================================== */}
+      <Modal
+        open={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        title="Tulis Evaluasi Bulanan (Monthly Review)"
+      >
+        <form onSubmit={saveReview} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+          <Field label="Pencapaian Kuliah & Materi yang Berhasil Dikuasai">
+            <Textarea
+              rows={3}
+              value={reviewForm.academic_done ?? ""}
+              onChange={(e) =>
+                setReviewForm({ ...reviewForm, academic_done: e.target.value })
+              }
+              placeholder="Materi yang sudah tuntas, kuis/UTS yang terlampaui..."
+              required
+            />
+          </Field>
+
+          <Field label="Ringkasan Belajar Mandiri & Proyek">
+            <Textarea
+              rows={2}
+              value={reviewForm.learning_summary ?? ""}
+              onChange={(e) =>
+                setReviewForm({
+                  ...reviewForm,
+                  learning_summary: e.target.value,
+                })
+              }
+              placeholder="Skill baru yang dikuasai, repositori/proyek yang rampung..."
+            />
+          </Field>
+
+          <Field label="Kendala & Hambatan yang Dihadapi">
+            <Textarea
+              rows={2}
+              value={reviewForm.problems ?? ""}
+              onChange={(e) =>
+                setReviewForm({ ...reviewForm, problems: e.target.value })
+              }
+              placeholder="Masalah manajemen waktu, materi yang sulit dipahami..."
+            />
+          </Field>
+
+          <Field label="Langkah Solusi / Perbaikan Diri">
+            <Textarea
+              rows={2}
+              value={reviewForm.improvements ?? ""}
+              onChange={(e) =>
+                setReviewForm({ ...reviewForm, improvements: e.target.value })
+              }
+              placeholder="Strategi pemecahan masalah yang akan diterapkan..."
+            />
+          </Field>
+
+          <Field label="Komitmen & Target Kunci Bulan Depan">
+            <Textarea
+              rows={2}
+              value={reviewForm.next_focus ?? ""}
+              onChange={(e) =>
+                setReviewForm({ ...reviewForm, next_focus: e.target.value })
+              }
+              placeholder="Fokus utama bulan berikutnya..."
+            />
+          </Field>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setReviewModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button type="submit">
+              <ClipboardList size={14} /> Simpan Review Bulanan
+            </Button>
           </div>
         </form>
       </Modal>

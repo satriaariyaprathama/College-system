@@ -47,8 +47,8 @@ function ReviewContent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Review & Kalender Akademik"
-        description="Evaluasi periodik belajar, milestone bimbingan DPA, dan timeline akademik UAD."
+        title="Plan & Review"
+        description="Perencanaan target dan evaluasi periodik (mingguan, bulanan, semester), bimbingan DPA, serta timeline akademik."
       />
 
       <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 text-xs sm:text-sm font-medium w-fit">
@@ -61,7 +61,7 @@ function ReviewContent() {
           }`}
         >
           <Clock size={15} />
-          Weekly Review
+          Weekly Plan & Review
         </button>
 
         <button
@@ -73,7 +73,7 @@ function ReviewContent() {
           }`}
         >
           <CalendarDays size={15} />
-          Monthly Review
+          Monthly Plan & Review
         </button>
 
         <button
@@ -85,7 +85,7 @@ function ReviewContent() {
           }`}
         >
           <Award size={15} />
-          Semester Review
+          Semester & Kompas
         </button>
 
         <button

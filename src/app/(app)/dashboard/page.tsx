@@ -47,6 +47,17 @@ function getDatabaseDayOfWeek(date: Date): number {
   return day === 0 ? 7 : day;
 }
 
+const DEFAULT_SEMESTER_SKS: Record<number, number> = {
+  1: 20,
+  2: 20,
+  3: 20,
+  4: 20,
+  5: 20,
+  6: 20,
+  7: 14,
+  8: 10,
+};
+
 export default function DashboardPage() {
   const supabase = createClient();
   const { currentSemesterId, currentSemester } = useSemesters();
@@ -55,6 +66,7 @@ export default function DashboardPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [notes, setNotes] = useState<LectureNote[]>([]);
   const [dpaGuidances, setDpaGuidances] = useState<DpaGuidance[]>([]);
+  const [roadmapSks, setRoadmapSks] = useState<Record<number, number>>(DEFAULT_SEMESTER_SKS);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [targetDate, setTargetDate] = useState<Date>(() => new Date());
@@ -65,6 +77,16 @@ export default function DashboardPage() {
     if (!user) {
       setLoading(false);
       return;
+    }
+
+    try {
+      const saved = localStorage.getItem(`kh_roadmap_sks_${user.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.sks) setRoadmapSks(parsed.sks);
+      }
+    } catch {
+      // ignore
     }
 
     const { data: profile } = await supabase
@@ -256,6 +278,12 @@ export default function DashboardPage() {
     }
   }
 
+  const activeSmtNumber = currentSemester?.semester_number ?? 1;
+  const hasActiveCourses = courses.length > 0;
+  const displayedSks = hasActiveCourses
+    ? heuristic.metrics.totalActiveSks
+    : (roadmapSks[activeSmtNumber] || DEFAULT_SEMESTER_SKS[activeSmtNumber] || 20);
+
   const isToday =
     format(targetDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
 
@@ -271,7 +299,7 @@ export default function DashboardPage() {
             </span>
             <span className="text-xs text-zinc-400">
               {currentSemester
-                ? `${currentSemester.academic_year} · Smt ${currentSemester.semester_number}`
+                ? `${currentSemester.academic_year} · Semester ${currentSemester.semester_number}`
                 : "Semua Semester"}
             </span>
           </div>
@@ -775,7 +803,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300 border border-zinc-700">
                 {currentSemester?.label ||
-                  `${currentSemester?.academic_year || "2026/2027"} · Smt ${currentSemester?.semester_number || 1}`}
+                  `${currentSemester?.academic_year || "2026/2027"} · Semester ${currentSemester?.semester_number || 1}`}
               </span>
               <span className="rounded-full bg-indigo-900/60 px-3 py-1 text-xs font-bold text-indigo-300 border border-indigo-700/50">
                 Target: 4.00 IPK
@@ -788,16 +816,18 @@ export default function DashboardPage() {
             {/* Metrik 1: SKS Aktif Semester */}
             <div className="rounded-xl bg-zinc-800/60 p-3.5 border border-zinc-800/80">
               <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block mb-1">
-                SKS Aktif Semester
+                {hasActiveCourses ? "SKS Aktif Semester" : "Target Rencana SKS"}
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-white">
-                  {heuristic.metrics.totalActiveSks}
+                  {displayedSks}
                 </span>
                 <span className="text-xs text-zinc-400">SKS</span>
               </div>
               <p className="mt-1 text-[11px] text-zinc-400">
-                Beban Ideal Semester {currentSemester?.semester_number || 1}
+                {hasActiveCourses
+                  ? `Beban Ideal Semester ${activeSmtNumber}`
+                  : `Target Rencana Semester ${activeSmtNumber}`}
               </p>
             </div>
 
@@ -812,9 +842,21 @@ export default function DashboardPage() {
                 </span>
                 <span className="text-xs text-zinc-400">Mata Kuliah</span>
               </div>
-              <p className="mt-1 text-[11px] text-zinc-400">
-                Terjadwal di SIMERU UAD
-              </p>
+              {hasActiveCourses ? (
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  Terjadwal di SIMERU UAD
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-zinc-400 flex items-center gap-1">
+                  <span>0 Matkul (Belum Terdata)</span>
+                  <Link
+                    href="/academics"
+                    className="text-indigo-400 font-semibold hover:underline inline-flex items-center gap-0.5"
+                  >
+                    + Daftarkan di Academics <ArrowRight size={10} />
+                  </Link>
+                </p>
+              )}
             </div>
 
             {/* Metrik 3: Catatan Kuliah */}
@@ -841,10 +883,10 @@ export default function DashboardPage() {
                 </span>
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs font-semibold text-zinc-300">
-                    {Math.min(144, heuristic.metrics.totalActiveSks)} / 144 SKS
+                    {Math.min(144, displayedSks)} / 144 SKS
                   </span>
                   <span className="text-xs font-bold text-emerald-400">
-                    {Math.min(100, Math.round((heuristic.metrics.totalActiveSks / 144) * 100))}%
+                    {Math.min(100, Math.round((displayedSks / 144) * 100))}%
                   </span>
                 </div>
               </div>
@@ -853,7 +895,7 @@ export default function DashboardPage() {
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, Math.round((heuristic.metrics.totalActiveSks / 144) * 100))}%`,
+                    width: `${Math.min(100, Math.max(5, Math.round((displayedSks / 144) * 100)))}%`,
                   }}
                 />
               </div>

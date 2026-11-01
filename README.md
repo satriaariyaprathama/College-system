@@ -26,9 +26,9 @@ Sistem ditransformasikan ke dalam 5 modul pilar mandiri yang terpadu secara holi
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        KULIAH HUB FLIGHT DECK                          │
 ├──────────────┬──────────────┬──────────────┬─────────────┬─────────────┤
-│ 1. Dashboard │ 2. Academics │   3. Tasks   │ 4. Projects │  5. Review  │
-│  (Command    │   (SIMERU &  │  (Submission │ (Portfolio  │    (DPA &   │
-│   Center)    │  Presensi)   │   Pipeline)  │  & Skills)  │  Timeline)  │
+│ 1. Dashboard │ 2. Academics │   3. Tasks   │ 4. Projects │ 5. Plan &   │
+│  (Command    │   (SIMERU &  │  (Submission │ (Portfolio  │   Review    │
+│   Center)    │  Presensi)   │   Pipeline)  │  & Skills)  │  (DPA/Map)  │
 └──────────────┴──────────────┴──────────────┴─────────────┴─────────────┘
 ```
 
@@ -37,7 +37,7 @@ Sistem ditransformasikan ke dalam 5 modul pilar mandiri yang terpadu secara holi
 - **Snapshot Time-Travel Simulator**: Pengguna dapat melompat mundur/maju tanggal (`<`, `>`, `Hari Ini`) untuk menginspeksi kondisi masa lalu atau mensimulasikan dampak beban tugas di masa mendatang.
 - **Critical Action Radar**: Peringatan otomatis tugas E-Learning berdeadline $\le 48$ jam yang belum berstatus `submitted`.
 - **Today's Classes SIMERU HUD**: Jadwal kuliah hari ini lengkap dengan ruang lab, jam, tautan cepat Moodle, grup WhatsApp, dan pintasan absensi.
-- **Full-Width Executive Academic Banner**: Banner footer horizontal modern yang merangkum SKS aktif, mata kuliah terjadwal, retensi catatan kuliah, serta progres kelulusan sarjana ($X / 144 \text{ SKS}$) dengan progress bar bergradasi elegan.
+- **Full-Width Executive Academic Banner & SKS Fallback**: Banner footer horizontal modern yang merangkum SKS aktif, mata kuliah terjadwal, retensi catatan kuliah, serta progres kelulusan sarjana ($X / 144 \text{ SKS}$) dengan progress bar bergradasi elegan serta sistem fallback cerdas anti-angka 0 pada semester baru.
 
 ### 2. Academics & SIMERU Operations (`/academics`)
 - **Master Jadwal & SIMERU**: Pengelolaan jadwal kuliah berulang (Senin–Minggu), bobot SKS, dosen pengampu, ruang kelas, link grup WhatsApp, dan direct link Moodle E-Learning.
@@ -55,9 +55,12 @@ Sistem ditransformasikan ke dalam 5 modul pilar mandiri yang terpadu secara holi
 - **Self-Learning Matrix**: Pelacak penguasaan keahlian mandiri di luar kurikulum kelas.
 - **Portfolio Showcase**: Kurasi otomatis karya-karya terbaik mahasiswa (`portfolio_status = yes/maybe`) yang siap dipresentasikan ke industri atau klien.
 
-### 5. Review, DPA & Academic Timeline (`/review`)
-- **Alur Refleksi 3-Fase & Open Debrief Board**: Evaluasi mingguan dan bulanan ditampilkan secara terbuka dan komprehensif di layar (Capaian & Keberhasilan, Hambatan & Titik Bingung, serta Kompas & Top 3 Prioritas).
-- **Academic Graduation Roadmap (8 Semester Sarjana S1)**: Visualisasi grid 8 semester untuk memantau semester aktif dan proyeksi target SKS kumulatif menuju kelulusan 144 SKS.
+### 5. Plan, Review & Academic Timeline (`/review`)
+- **Dual-Panel Planning & Review (Berdampingan)**:
+  - *Weekly Dual-Panel*: Target Awal Minggu (Senin Pagi) berdampingan langsung dengan Evaluasi Capaian Akhir Minggu (Minggu Malam).
+  - *Monthly Dual-Panel*: Target Awal Bulan (Fokus, Akademik, Proyek) berdampingan langsung dengan Evaluasi Hasil Sebulan.
+- **Mind Map Kompas Semester**: Visualisasi bento/mind map interaktif penentu arah semester (Center node fokus inti + 4 cabang satelit: Akademik/IPK, Skill Belajar Mandiri, Karya Portofolio, dan Disiplin Presensi/DPA).
+- **Academic Graduation Simulator (8 Semester Sarjana S1)**: Kartu 8 semester interaktif yang dapat disesuaikan target SKS dan target IPK per semester dengan perhitungan kumulatif dinamis menuju 144 SKS kelulusan.
 - **Rich Semester Retrospective**: Evaluasi pencapaian akademik semester, pertumbuhan skill & karya portofolio, serta evaluasi solusi.
 - **3x Milestone Bimbingan DPA UAD**:
   1. *Bimbingan 1*: Perwalian KRS & Rencana Studi Awal Semester.

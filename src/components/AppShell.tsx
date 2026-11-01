@@ -25,7 +25,7 @@ const MAIN_NAV = [
   { href: "/academics", label: "Academics", icon: GraduationCap },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/review", label: "Review & DPA", icon: ClipboardList },
+  { href: "/review", label: "Plan & Review", icon: ClipboardList },
 ];
 
 // 4 Tab Esensial untuk Bottom Bar Ponsel
@@ -33,7 +33,7 @@ const MOBILE_BOTTOM_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/academics", label: "Academics", icon: GraduationCap },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/review", label: "Review", icon: ClipboardList },
+  { href: "/review", label: "Plan & Review", icon: ClipboardList },
 ];
 
 const PORTAL_LINKS = [
@@ -315,7 +315,7 @@ function SemesterSelect({
       <option value="">Semua Semester</option>
       {semesters.map((s) => (
         <option key={s.id} value={s.id}>
-          {s.label || `${s.academic_year} · Smt ${s.semester_number}`}
+          {s.label || `${s.academic_year} · Semester ${s.semester_number}`}
         </option>
       ))}
     </select>
