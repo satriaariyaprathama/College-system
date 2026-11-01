@@ -749,24 +749,115 @@ export default function DashboardPage() {
                 })}
               </div>
             </Card>
+          </div>
+        </div>
+      )}
 
-            {/* 4. TOTAL SKS & SUMMARY CARD */}
-            <Card className="!p-4 bg-zinc-900 text-white space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">Beban Studi Semester Ini</span>
-                <span className="text-xs font-bold text-indigo-400">Target 4.00 IPK</span>
+      {/* FULL-WIDTH EXECUTIVE ACADEMIC BANNER */}
+      {!loading && (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 text-white shadow-sm space-y-4">
+          {/* Baris Atas */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400">
+                <GraduationCap size={18} />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-tight">
+                  Beban Studi & Target Kelulusan Sarjana
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Peta jalan akumulasi SKS menuju target kelulusan 144 SKS Sarjana S1
+                </p>
               </div>
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <span className="text-3xl font-black">{heuristic.metrics.totalActiveSks}</span>
-                  <span className="text-xs text-zinc-400 ml-1">SKS Aktif</span>
-                </div>
-                <div className="text-right text-xs text-zinc-300">
-                  <p className="font-semibold">{courses.length} Mata Kuliah</p>
-                  <p className="text-[10px] text-zinc-400">{notes.length} Catatan Kuliah</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300 border border-zinc-700">
+                {currentSemester?.label ||
+                  `${currentSemester?.academic_year || "2026/2027"} · Smt ${currentSemester?.semester_number || 1}`}
+              </span>
+              <span className="rounded-full bg-indigo-900/60 px-3 py-1 text-xs font-bold text-indigo-300 border border-indigo-700/50">
+                Target: 4.00 IPK
+              </span>
+            </div>
+          </div>
+
+          {/* Baris Bawah (Grid 4 Kolom Metrik Horizontal) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+            {/* Metrik 1: SKS Aktif Semester */}
+            <div className="rounded-xl bg-zinc-800/60 p-3.5 border border-zinc-800/80">
+              <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block mb-1">
+                SKS Aktif Semester
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-white">
+                  {heuristic.metrics.totalActiveSks}
+                </span>
+                <span className="text-xs text-zinc-400">SKS</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Beban Ideal Semester {currentSemester?.semester_number || 1}
+              </p>
+            </div>
+
+            {/* Metrik 2: Mata Kuliah */}
+            <div className="rounded-xl bg-zinc-800/60 p-3.5 border border-zinc-800/80">
+              <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block mb-1">
+                Mata Kuliah Aktif
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-white">
+                  {courses.length}
+                </span>
+                <span className="text-xs text-zinc-400">Mata Kuliah</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Terjadwal di SIMERU UAD
+              </p>
+            </div>
+
+            {/* Metrik 3: Catatan Kuliah */}
+            <div className="rounded-xl bg-zinc-800/60 p-3.5 border border-zinc-800/80">
+              <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block mb-1">
+                Catatan Kuliah
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-white">
+                  {notes.length}
+                </span>
+                <span className="text-xs text-zinc-400">Catatan</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Retensi materi perkuliahan
+              </p>
+            </div>
+
+            {/* Metrik 4: Progres Kelulusan S1 */}
+            <div className="rounded-xl bg-zinc-800/60 p-3.5 border border-zinc-800/80 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block mb-1">
+                  Progres Sarjana S1
+                </span>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-semibold text-zinc-300">
+                    {Math.min(144, heuristic.metrics.totalActiveSks)} / 144 SKS
+                  </span>
+                  <span className="text-xs font-bold text-emerald-400">
+                    {Math.min(100, Math.round((heuristic.metrics.totalActiveSks / 144) * 100))}%
+                  </span>
                 </div>
               </div>
-            </Card>
+
+              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-zinc-700">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round((heuristic.metrics.totalActiveSks / 144) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

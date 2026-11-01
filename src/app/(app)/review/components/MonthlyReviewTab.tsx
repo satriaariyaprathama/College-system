@@ -3,10 +3,19 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSemesters } from "@/components/SemesterContext";
-import { Button, Card, EmptyState, Field, Modal, Textarea } from "@/components/ui";
+import { Button, Card, Field, Modal, Textarea } from "@/components/ui";
 import type { MonthlyReview } from "@/lib/types";
 import { getMonthStart, formatMonthLabel } from "@/lib/date";
-import { Plus, Pencil } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  BookOpen,
+  AlertTriangle,
+  Target,
+  CheckCircle2,
+  Calendar,
+  Sparkles,
+} from "lucide-react";
 
 const emptyMonthly = {
   id: "" as string | null,
@@ -118,7 +127,7 @@ export default function MonthlyReviewTab() {
     e.preventDefault();
 
     if (!currentSemesterId) {
-      alert("Pilih semester terlebih dahulu di sidebar.");
+      alert("Pilih semester terlebih dahulu di sidebar/header.");
       return;
     }
 
@@ -139,8 +148,10 @@ export default function MonthlyReviewTab() {
 
       error = result.error;
     } else {
-      const { data: { user }, error: userError } =
-        await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
       if (userError || !user) {
         alert(
@@ -151,15 +162,13 @@ export default function MonthlyReviewTab() {
         return;
       }
 
-      const result = await supabase
-        .from("monthly_reviews")
-        .upsert(
-          {
-            ...payload,
-            user_id: user.id,
-          },
-          { onConflict: "user_id,month_start" }
-        );
+      const result = await supabase.from("monthly_reviews").upsert(
+        {
+          ...payload,
+          user_id: user.id,
+        },
+        { onConflict: "user_id,month_start" }
+      );
 
       error = result.error;
     }
@@ -174,15 +183,18 @@ export default function MonthlyReviewTab() {
     await load();
   }
 
-  return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="mb-1 text-sm font-medium text-zinc-700">
-            Pilih bulan
-          </p>
+  const currentMonthLabel = formatMonthLabel(selectedMonthStart);
 
-          <div className="flex flex-wrap gap-2">
+  return (
+    <div className="space-y-6">
+      {/* 1. Header Horisontal (Pilih Bulan + Tombol Review) */}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-200 pb-4">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-zinc-700">
+            Pilih Bulan Evaluasi
+          </label>
+
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedMonth}
               onChange={(e) => {
@@ -191,7 +203,7 @@ export default function MonthlyReviewTab() {
                   `${selectedYear}-${String(month).padStart(2, "0")}-01`
                 );
               }}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
             >
               {monthOptions.map((month) => (
                 <option key={month.value} value={month.value}>
@@ -208,7 +220,7 @@ export default function MonthlyReviewTab() {
                   `${year}-${String(selectedMonth).padStart(2, "0")}-01`
                 );
               }}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
             >
               {yearOptions.map((year) => (
                 <option key={year} value={year}>
@@ -219,54 +231,197 @@ export default function MonthlyReviewTab() {
           </div>
         </div>
 
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} className="shrink-0">
           <Plus size={15} /> Review Bulan Ini
         </Button>
       </div>
 
+      {/* 2. Open Debrief Board / Empty State */}
       {loading ? (
-        <p className="text-sm text-zinc-400">Memuat...</p>
+        <p className="text-sm text-zinc-400 py-6">Memuat review bulanan...</p>
       ) : !selectedReview ? (
-        <EmptyState text="Belum ada monthly review untuk bulan ini." />
+        /* Empty State Mengajak */
+        <Card className="!p-8 text-center border-dashed border-2 border-zinc-200 bg-zinc-50/50">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 mb-3">
+            <Calendar size={22} />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-900">
+            Bulan {currentMonthLabel} belum dievaluasi
+          </h3>
+          <p className="mt-1 text-xs text-zinc-500 max-w-md mx-auto">
+            Luangkan waktu sejenak untuk meninjau capaian sebulan, mengidentifikasi
+            kendala perkuliahan, dan mengunci komitmen serta fokus bulan berikutnya.
+          </p>
+          <div className="mt-4">
+            <Button onClick={openCreate}>
+              <Sparkles size={14} /> Buat Review Sekarang
+            </Button>
+          </div>
+        </Card>
       ) : (
-        <div className="space-y-2">
-          {[selectedReview].map((item) => (
-            <Card key={item.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-zinc-900">
-                    {formatMonthLabel(item.month_start)}
-                  </p>
+        /* Open Debrief Board Bulanan Lengkap */
+        <Card className="!p-6 space-y-6 border-zinc-200 bg-white shadow-xs">
+          {/* Header Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                  <CheckCircle2 size={13} /> Evaluasi Bulanan Selesai
+                </span>
+                <span className="text-xs text-zinc-400">•</span>
+                <span className="text-xs text-zinc-500 font-medium">
+                  Periode: {currentMonthLabel}
+                </span>
+              </div>
+              <h2 className="mt-1 text-base font-bold text-zinc-900">
+                Laporan Refleksi Bulanan: {currentMonthLabel}
+              </h2>
+            </div>
 
-                  {item.next_focus && (
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Fokus berikutnya: {item.next_focus}
-                    </p>
-                  )}
+            <Button
+              variant="secondary"
+              onClick={() => openEdit(selectedReview)}
+              className="shrink-0 !text-xs !py-1.5"
+            >
+              <Pencil size={13} /> Edit Review Bulanan
+            </Button>
+          </div>
+
+          {/* 3 Bagian Terstruktur Bulanan */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Bagian 1: Capaian Akademik Sebulan */}
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-indigo-800">
+                <BookOpen size={18} className="shrink-0 text-indigo-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  Capaian Akademik Sebulan
+                </h3>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-zinc-700 block mb-0.5">
+                    Hasil & Pemahaman Materi:
+                  </span>
+                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedReview.academic_done || (
+                      <span className="text-zinc-400 italic">
+                        Belum dicatat.
+                      </span>
+                    )}
+                  </p>
                 </div>
 
-                <button
-                  onClick={() => openEdit(item)}
-                  className="text-zinc-400 hover:text-zinc-700"
-                >
-                  <Pencil size={15} />
-                </button>
+                {selectedReview.learning_summary && (
+                  <div className="pt-2 border-t border-indigo-100/60">
+                    <span className="font-semibold text-zinc-700 block mb-0.5">
+                      Ringkasan Belajar Mandiri:
+                    </span>
+                    <p className="text-zinc-600 whitespace-pre-wrap">
+                      {selectedReview.learning_summary}
+                    </p>
+                  </div>
+                )}
+
+                {selectedReview.project_progress && (
+                  <div className="pt-2 border-t border-indigo-100/60">
+                    <span className="font-semibold text-zinc-700 block mb-0.5">
+                      Progres Proyek / Portofolio:
+                    </span>
+                    <p className="text-zinc-600 whitespace-pre-wrap">
+                      {selectedReview.project_progress}
+                    </p>
+                  </div>
+                )}
               </div>
-            </Card>
-          ))}
-        </div>
+            </div>
+
+            {/* Bagian 2: Evaluasi Kendala & Peningkatan */}
+            <div className="rounded-xl border border-amber-100 bg-amber-50/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-800">
+                <AlertTriangle size={18} className="shrink-0 text-amber-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  Kendala & Perbaikan Diri
+                </h3>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-zinc-700 block mb-0.5">
+                    Hambatan & Kendala:
+                  </span>
+                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedReview.problems || (
+                      <span className="text-zinc-400 italic">
+                        Tidak ada hambatan signifikan.
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {selectedReview.improvements && (
+                  <div className="pt-2 border-t border-amber-100/60">
+                    <span className="font-semibold text-zinc-700 block mb-0.5">
+                      Rencana Solusi & Perbaikan:
+                    </span>
+                    <p className="text-zinc-600 whitespace-pre-wrap">
+                      {selectedReview.improvements}
+                    </p>
+                  </div>
+                )}
+
+                {selectedReview.academic_unclear && (
+                  <div className="pt-2 border-t border-amber-100/60">
+                    <span className="font-semibold text-zinc-700 block mb-0.5">
+                      Materi Belum Terkuasai:
+                    </span>
+                    <p className="text-zinc-600 whitespace-pre-wrap">
+                      {selectedReview.academic_unclear}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bagian 3: Komitmen & Fokus Bulan Depan */}
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-800">
+                <Target size={18} className="shrink-0 text-emerald-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  Komitmen & Fokus Depan
+                </h3>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-zinc-700 block mb-0.5">
+                    Target Utama Bulan Berikutnya:
+                  </span>
+                  <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
+                    {selectedReview.next_focus || (
+                      <span className="text-zinc-400 italic">
+                        Belum menentukan target.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
+      {/* 3. Modal Form: Alur Terstruktur Bulanan */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Monthly Review"
+        title="Evaluasi Bulanan (Monthly Review)"
       >
         <form
           onSubmit={save}
-          className="max-h-[70vh] space-y-4 overflow-y-auto pr-1"
+          className="max-h-[75vh] space-y-4 overflow-y-auto pr-1"
         >
-          <Field label="Bulan">
+          <Field label="Bulan Evaluasi">
             <input
               type="month"
               value={form.month_start.slice(0, 7)}
@@ -281,104 +436,128 @@ export default function MonthlyReviewTab() {
             />
           </Field>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Academic
-          </p>
+          {/* FASE 1: Capaian Akademik Sebulan */}
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-3.5 space-y-3">
+            <div className="flex items-center gap-2 text-indigo-800">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
+                1
+              </span>
+              <p className="text-xs font-bold uppercase tracking-wider">
+                Capaian Akademik Sebulan
+              </p>
+            </div>
 
-          <Field label="Apa yang tercapai?">
-            <Textarea
-              rows={2}
-              value={form.academic_done}
-              onChange={(e) =>
-                setForm({ ...form, academic_done: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Pencapaian Kuliah & Materi yang Berhasil Dikuasai">
+              <Textarea
+                rows={3}
+                value={form.academic_done}
+                onChange={(e) =>
+                  setForm({ ...form, academic_done: e.target.value })
+                }
+                placeholder="Materi yang sudah tuntas, kuis/UTS yang terlampaui..."
+              />
+            </Field>
 
-          <Field label="Apa yang tertunda?">
-            <Textarea
-              rows={2}
-              value={form.academic_pending}
-              onChange={(e) =>
-                setForm({ ...form, academic_pending: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Ringkasan Belajar Mandiri & Skill Baru">
+              <Textarea
+                rows={2}
+                value={form.learning_summary}
+                onChange={(e) =>
+                  setForm({ ...form, learning_summary: e.target.value })
+                }
+                placeholder="Teknologi baru yang dipelajari, sertifikasi, buku yang dibaca..."
+              />
+            </Field>
 
-          <Field label="Apa yang belum dipahami?">
-            <Textarea
-              rows={2}
-              value={form.academic_unclear}
-              onChange={(e) =>
-                setForm({ ...form, academic_unclear: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Progres Proyek / Portofolio">
+              <Textarea
+                rows={2}
+                value={form.project_progress}
+                onChange={(e) =>
+                  setForm({ ...form, project_progress: e.target.value })
+                }
+                placeholder="Fitur atau repositori yang berhasil diselesaikan..."
+              />
+            </Field>
+          </div>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Learning
-          </p>
+          {/* FASE 2: Hambatan & Perbaikan */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-3.5 space-y-3">
+            <div className="flex items-center gap-2 text-amber-800">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[11px] font-bold text-white">
+                2
+              </span>
+              <p className="text-xs font-bold uppercase tracking-wider">
+                Evaluasi Hambatan & Solusi
+              </p>
+            </div>
 
-          <Field label="Pembelajaran bulan ini">
-            <Textarea
-              rows={2}
-              value={form.learning_summary}
-              onChange={(e) =>
-                setForm({ ...form, learning_summary: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Kendala & Masalah yang Dihadapi">
+              <Textarea
+                rows={2}
+                value={form.problems}
+                onChange={(e) =>
+                  setForm({ ...form, problems: e.target.value })
+                }
+                placeholder="Manajemen waktu, materi dosen yang terlalu cepat, prokrastinasi..."
+              />
+            </Field>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Project
-          </p>
+            <Field label="Langkah Perbaikan / Strategi Pemecahan">
+              <Textarea
+                rows={2}
+                value={form.improvements}
+                onChange={(e) =>
+                  setForm({ ...form, improvements: e.target.value })
+                }
+                placeholder="Solusi konkret: belajar kelompok, tanya asdos, blok fokus pagi hari..."
+              />
+            </Field>
 
-          <Field label="Progress project">
-            <Textarea
-              rows={2}
-              value={form.project_progress}
-              onChange={(e) =>
-                setForm({ ...form, project_progress: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Materi yang Masih Belum Jelas (Opsional)">
+              <Textarea
+                rows={2}
+                value={form.academic_unclear}
+                onChange={(e) =>
+                  setForm({ ...form, academic_unclear: e.target.value })
+                }
+                placeholder="Konsep yang perlu di-review ulang..."
+              />
+            </Field>
+          </div>
 
-          <Field label="Masalah atau hambatan">
-            <Textarea
-              rows={2}
-              value={form.problems}
-              onChange={(e) =>
-                setForm({ ...form, problems: e.target.value })
-              }
-            />
-          </Field>
+          {/* FASE 3: Komitmen Bulan Depan */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3.5 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-800">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
+                3
+              </span>
+              <p className="text-xs font-bold uppercase tracking-wider">
+                Komitmen & Fokus Bulan Depan
+              </p>
+            </div>
 
-          <Field label="Hal yang perlu diperbaiki">
-            <Textarea
-              rows={2}
-              value={form.improvements}
-              onChange={(e) =>
-                setForm({ ...form, improvements: e.target.value })
-              }
-            />
-          </Field>
+            <Field label="Target Kunci & Fokus Prioritas Bulan Depan">
+              <Textarea
+                rows={3}
+                value={form.next_focus}
+                onChange={(e) =>
+                  setForm({ ...form, next_focus: e.target.value })
+                }
+                placeholder="Target nilai UTS/UAS, menyelesaikan mini project, bimbingan DPA..."
+              />
+            </Field>
+          </div>
 
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Next Month
-          </p>
-
-          <Field label="Fokus bulan berikutnya">
-            <Textarea
-              rows={2}
-              value={form.next_focus}
-              onChange={(e) =>
-                setForm({ ...form, next_focus: e.target.value })
-              }
-            />
-          </Field>
-
-          <div className="flex justify-end pt-2">
-            <Button type="submit">Simpan</Button>
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button type="submit">Simpan Review Bulanan</Button>
           </div>
         </form>
       </Modal>

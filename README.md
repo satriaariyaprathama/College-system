@@ -37,6 +37,7 @@ Sistem ditransformasikan ke dalam 5 modul pilar mandiri yang terpadu secara holi
 - **Snapshot Time-Travel Simulator**: Pengguna dapat melompat mundur/maju tanggal (`<`, `>`, `Hari Ini`) untuk menginspeksi kondisi masa lalu atau mensimulasikan dampak beban tugas di masa mendatang.
 - **Critical Action Radar**: Peringatan otomatis tugas E-Learning berdeadline $\le 48$ jam yang belum berstatus `submitted`.
 - **Today's Classes SIMERU HUD**: Jadwal kuliah hari ini lengkap dengan ruang lab, jam, tautan cepat Moodle, grup WhatsApp, dan pintasan absensi.
+- **Full-Width Executive Academic Banner**: Banner footer horizontal modern yang merangkum SKS aktif, mata kuliah terjadwal, retensi catatan kuliah, serta progres kelulusan sarjana ($X / 144 \text{ SKS}$) dengan progress bar bergradasi elegan.
 
 ### 2. Academics & SIMERU Operations (`/academics`)
 - **Master Jadwal & SIMERU**: Pengelolaan jadwal kuliah berulang (Senin–Minggu), bobot SKS, dosen pengampu, ruang kelas, link grup WhatsApp, dan direct link Moodle E-Learning.
@@ -55,12 +56,14 @@ Sistem ditransformasikan ke dalam 5 modul pilar mandiri yang terpadu secara holi
 - **Portfolio Showcase**: Kurasi otomatis karya-karya terbaik mahasiswa (`portfolio_status = yes/maybe`) yang siap dipresentasikan ke industri atau klien.
 
 ### 5. Review, DPA & Academic Timeline (`/review`)
+- **Alur Refleksi 3-Fase & Open Debrief Board**: Evaluasi mingguan dan bulanan ditampilkan secara terbuka dan komprehensif di layar (Capaian & Keberhasilan, Hambatan & Titik Bingung, serta Kompas & Top 3 Prioritas).
+- **Academic Graduation Roadmap (8 Semester Sarjana S1)**: Visualisasi grid 8 semester untuk memantau semester aktif dan proyeksi target SKS kumulatif menuju kelulusan 144 SKS.
+- **Rich Semester Retrospective**: Evaluasi pencapaian akademik semester, pertumbuhan skill & karya portofolio, serta evaluasi solusi.
 - **3x Milestone Bimbingan DPA UAD**:
   1. *Bimbingan 1*: Perwalian KRS & Rencana Studi Awal Semester.
   2. *Bimbingan 2*: Evaluasi Tengah Semester (Pasca-UTS) & Capaian Belajar.
   3. *Bimbingan 3*: Evaluasi Akhir Semester, Hasil UAS & Refleksi IPK.
 - **Kalender & Milestone Akademik**: Timeline visual jadwal UTS, UAS, KRS, pembayaran cicilan SPP, dan libur resmi universitas.
-- **Evaluasi Periodik**: Refleksi mingguan, bulanan, dan akhir semester.
 
 ---
 
