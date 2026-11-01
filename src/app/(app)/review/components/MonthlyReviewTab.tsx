@@ -247,21 +247,25 @@ export default function MonthlyReviewTab() {
 
   const currentMonthLabel = formatMonthLabel(selectedMonthStart);
 
-  const hasPlan = Boolean(
-    selectedPlan?.focus ||
-      selectedPlan?.academic_goals ||
-      selectedPlan?.project_goals ||
-      selectedPlan?.priorities
-  );
+  // Cek keberadaan konten spesifik (Content-Driven)
+  const hasFocus = Boolean(selectedPlan?.focus?.trim());
+  const hasAcademicGoals = Boolean(selectedPlan?.academic_goals?.trim());
+  const hasProjectGoals = Boolean(selectedPlan?.project_goals?.trim());
+  const hasPriorities = Boolean(selectedPlan?.priorities?.trim());
+  const hasPlan = hasFocus || hasAcademicGoals || hasProjectGoals || hasPriorities;
 
-  const hasReview = Boolean(
-    selectedReview?.academic_done ||
-      selectedReview?.learning_summary ||
-      selectedReview?.project_progress ||
-      selectedReview?.problems ||
-      selectedReview?.improvements ||
-      selectedReview?.next_focus
+  const hasAcademicDone = Boolean(
+    selectedReview?.academic_done?.trim() ||
+      selectedReview?.learning_summary?.trim() ||
+      selectedReview?.project_progress?.trim()
   );
+  const hasProblems = Boolean(
+    selectedReview?.problems?.trim() ||
+      selectedReview?.improvements?.trim() ||
+      selectedReview?.academic_unclear?.trim()
+  );
+  const hasNextFocus = Boolean(selectedReview?.next_focus?.trim());
+  const hasReview = hasAcademicDone || hasProblems || hasNextFocus;
 
   return (
     <div className="space-y-6">
@@ -339,23 +343,23 @@ export default function MonthlyReviewTab() {
           {/* ======================================================== */}
           {/* PANEL KIRI: 🎯 Monthly Plan (Target Bulan Ini)            */}
           {/* ======================================================== */}
-          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+          <Card className="!p-5 space-y-3.5 border-zinc-200 bg-white shadow-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
                   <Target size={16} />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                  <h3 className="text-sm font-bold text-zinc-900 leading-tight">
                     Monthly Plan (Target Bulan Ini)
                   </h3>
-                  <span className="text-[10px] text-zinc-400">
+                  <span className="text-[10px] text-zinc-400 block mt-0.5">
                     Disusun pada awal bulan
                   </span>
                 </div>
               </div>
 
-              {hasPlan ? (
+              {hasPlan && (
                 <button
                   onClick={openPlanModal}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"
@@ -363,23 +367,20 @@ export default function MonthlyReviewTab() {
                 >
                   <Pencil size={12} /> Edit Target
                 </button>
-              ) : null}
+              )}
             </div>
 
             {!hasPlan ? (
-              /* Empty state plan */
-              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                  <Target size={18} />
+              /* Compact Adaptive Empty State */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-700">
+                  <Target size={15} className="text-indigo-600" />
+                  <span>Belum ada target untuk {currentMonthLabel}</span>
                 </div>
-                <h4 className="text-xs font-bold text-zinc-800">
-                  Belum ada rencana untuk {currentMonthLabel}
-                </h4>
                 <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
-                  Tetapkan fokus utama, target mata kuliah, dan milestone proyek
-                  yang ingin dicapai dalam satu bulan ini.
+                  Tetapkan fokus utama, target mata kuliah, dan milestone proyek sebulan ke depan.
                 </p>
-                <div className="pt-1">
+                <div>
                   <Button
                     variant="secondary"
                     onClick={openPlanModal}
@@ -390,61 +391,55 @@ export default function MonthlyReviewTab() {
                 </div>
               </div>
             ) : (
-              /* Open Content Monthly Plan */
-              <div className="space-y-4 text-xs">
+              /* Content-Driven Plan Display (Only Render Non-Empty Sections) */
+              <div className="space-y-3 text-xs">
                 {/* 1. Fokus Utama */}
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
-                    <Compass size={14} className="text-indigo-600" />
-                    <span>Fokus Utama Bulan Ini</span>
+                {hasFocus && (
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
+                      <Compass size={14} className="text-indigo-600 shrink-0" />
+                      <span>Fokus Utama Bulan Ini</span>
+                    </div>
+                    <p className="text-zinc-900 font-bold text-sm leading-snug">
+                      {selectedPlan?.focus}
+                    </p>
                   </div>
-                  <p className="text-zinc-800 font-bold text-sm leading-snug">
-                    {selectedPlan?.focus || (
-                      <span className="text-zinc-400 font-normal italic">
-                        Belum menentukan fokus utama.
-                      </span>
-                    )}
-                  </p>
-                </div>
+                )}
 
                 {/* 2. Target Akademik & Kuliah */}
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
-                    <BookOpen size={14} className="text-zinc-600" />
-                    <span>Target Akademik & Kuliah</span>
+                {hasAcademicGoals && (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
+                      <BookOpen size={14} className="text-zinc-600 shrink-0" />
+                      <span>Target Akademik & Kuliah</span>
+                    </div>
+                    <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                      {selectedPlan?.academic_goals}
+                    </p>
                   </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedPlan?.academic_goals || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada target khusus.
-                      </span>
-                    )}
-                  </p>
-                </div>
+                )}
 
                 {/* 3. Target Proyek & Skill */}
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
-                    <Rocket size={14} className="text-zinc-600" />
-                    <span>Target Proyek & Skill</span>
+                {hasProjectGoals && (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-zinc-800 font-bold text-xs">
+                      <Rocket size={14} className="text-zinc-600 shrink-0" />
+                      <span>Target Proyek & Skill</span>
+                    </div>
+                    <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                      {selectedPlan?.project_goals}
+                    </p>
                   </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedPlan?.project_goals || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada target proyek.
-                      </span>
-                    )}
-                  </p>
-                </div>
+                )}
 
                 {/* 4. Prioritas Bulanan */}
-                {selectedPlan?.priorities && (
+                {hasPriorities && (
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1">
                     <span className="font-semibold text-zinc-700 block">
                       Prioritas & Catatan:
                     </span>
                     <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedPlan.priorities}
+                      {selectedPlan?.priorities}
                     </p>
                   </div>
                 )}
@@ -455,23 +450,23 @@ export default function MonthlyReviewTab() {
           {/* ======================================================== */}
           {/* PANEL KANAN: 📋 Monthly Review (Evaluasi Hasil Bulan)      */}
           {/* ======================================================== */}
-          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+          <Card className="!p-5 space-y-3.5 border-zinc-200 bg-white shadow-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                   <ClipboardList size={16} />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                  <h3 className="text-sm font-bold text-zinc-900 leading-tight">
                     Monthly Review (Evaluasi Akhir Bulan)
                   </h3>
-                  <span className="text-[10px] text-zinc-400">
+                  <span className="text-[10px] text-zinc-400 block mt-0.5">
                     Disusun pada akhir bulan
                   </span>
                 </div>
               </div>
 
-              {hasReview ? (
+              {hasReview && (
                 <button
                   onClick={openReviewModal}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition"
@@ -479,95 +474,90 @@ export default function MonthlyReviewTab() {
                 >
                   <Pencil size={12} /> Edit Review
                 </button>
-              ) : null}
+              )}
             </div>
 
             {!hasReview ? (
-              /* Empty state review */
-              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  <ClipboardList size={18} />
+              /* Compact Adaptive Empty State */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-700">
+                  <ClipboardList size={15} className="text-emerald-600" />
+                  <span>Review bulan {currentMonthLabel} belum ditulis</span>
                 </div>
-                <h4 className="text-xs font-bold text-zinc-800">
-                  Review bulan {currentMonthLabel} belum ditulis
-                </h4>
                 <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
-                  Bandingkan realisasi pencapaian Anda dengan target di sebelah
-                  kiri dan formulasikan komitmen bulan depan.
+                  Bandingkan realisasi pencapaian Anda dengan target di sebelah kiri.
                 </p>
-                <div className="pt-1">
+                <div>
                   <Button onClick={openReviewModal} className="!text-xs !py-1">
                     <Sparkles size={12} /> + Tulis Review Bulan Ini
                   </Button>
                 </div>
               </div>
             ) : (
-              /* Open Content Monthly Review */
-              <div className="space-y-4 text-xs">
+              /* Content-Driven Review Display (Only Render Non-Empty Sections) */
+              <div className="space-y-3 text-xs">
                 {/* 1. Capaian Akademik Sebulan */}
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
-                    <BookOpen size={14} className="text-emerald-600" />
-                    <span>Capaian Kuliah & Belajar Mandiri</span>
-                  </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedReview?.academic_done || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada catatan capaian.
-                      </span>
+                {hasAcademicDone && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+                      <BookOpen size={14} className="text-emerald-600 shrink-0" />
+                      <span>Capaian Kuliah & Belajar Mandiri</span>
+                    </div>
+                    {selectedReview?.academic_done && (
+                      <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                        {selectedReview.academic_done}
+                      </p>
                     )}
-                  </p>
-                  {selectedReview?.learning_summary && (
-                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
-                      Skill: {selectedReview.learning_summary}
-                    </p>
-                  )}
-                  {selectedReview?.project_progress && (
-                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
-                      Proyek: {selectedReview.project_progress}
-                    </p>
-                  )}
-                </div>
+                    {selectedReview?.learning_summary && (
+                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
+                        Skill: {selectedReview.learning_summary}
+                      </p>
+                    )}
+                    {selectedReview?.project_progress && (
+                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
+                        Proyek: {selectedReview.project_progress}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 2. Hambatan & Masalah */}
-                <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
-                    <AlertTriangle size={14} className="text-amber-600" />
-                    <span>Kendala & Poin Perbaikan</span>
-                  </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedReview?.problems || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada masalah signifikan.
-                      </span>
+                {hasProblems && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                      <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                      <span>Kendala & Poin Perbaikan</span>
+                    </div>
+                    {selectedReview?.problems && (
+                      <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                        {selectedReview.problems}
+                      </p>
                     )}
-                  </p>
-                  {selectedReview?.improvements && (
-                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-amber-100">
-                      Solusi: {selectedReview.improvements}
-                    </p>
-                  )}
-                  {selectedReview?.academic_unclear && (
-                    <p className="text-[11px] text-amber-700 pt-1 border-t border-amber-100">
-                      Materi belum paham: {selectedReview.academic_unclear}
-                    </p>
-                  )}
-                </div>
+                    {selectedReview?.improvements && (
+                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-amber-100">
+                        Solusi: {selectedReview.improvements}
+                      </p>
+                    )}
+                    {selectedReview?.academic_unclear && (
+                      <p className="text-[11px] text-amber-700 pt-1 border-t border-amber-100">
+                        Materi belum paham: {selectedReview.academic_unclear}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. Fokus Bulan Depan */}
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
-                    <Target size={14} className="text-indigo-600" />
-                    <span>Komitmen & Fokus Bulan Depan</span>
+                {hasNextFocus && (
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
+                      <Target size={14} className="text-indigo-600 shrink-0" />
+                      <span>Komitmen & Fokus Bulan Depan</span>
+                    </div>
+                    <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
+                      {selectedReview?.next_focus}
+                    </p>
                   </div>
-                  <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
-                    {selectedReview?.next_focus || (
-                      <span className="text-zinc-400 italic">
-                        Belum menentukan fokus depan.
-                      </span>
-                    )}
-                  </p>
-                </div>
+                )}
               </div>
             )}
           </Card>

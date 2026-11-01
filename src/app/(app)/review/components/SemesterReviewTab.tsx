@@ -32,6 +32,32 @@ const DEFAULT_SEMESTER_SKS: Record<number, number> = {
   8: 10,
 };
 
+// Helper untuk mengekstrak poin ringkas (maks 2-3 butir) untuk diagram mind map
+function parseBulletPoints(text: string | null | undefined, maxItems = 3): string[] {
+  if (!text || !text.trim()) return [];
+
+  // Pisahkan berdasarkan baris baru terlebih dahulu
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[-*•–—\d.)\s]+/, "").trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length > 1) {
+    return lines.slice(0, maxItems);
+  }
+
+  // Jika berupa 1 baris yang dipisahkan karakter bullet (• atau *)
+  if (text.includes("•") || text.includes("* ")) {
+    return text
+      .split(/[•*]\s+/)
+      .map((s) => s.trim().replace(/^[-*•–—\d.)\s]+/, "").trim())
+      .filter((s) => s.length > 0)
+      .slice(0, maxItems);
+  }
+
+  return [text.trim().replace(/^[-*•–—\d.)\s]+/, "").trim()].slice(0, maxItems);
+}
+
 const emptySemesterReview: SemesterReview = {
   id: "",
   user_id: "",
@@ -159,6 +185,12 @@ export default function SemesterReviewTab() {
   );
 
   const activeSmtNumber = currentSemester?.semester_number ?? 1;
+
+  // Poin-poin ringkas untuk 4 cabang Mind Map Satelit
+  const academicBullets = parseBulletPoints(semesterPlan?.academic_goals, 3);
+  const learningBullets = parseBulletPoints(semesterPlan?.learning_goals, 3);
+  const projectBullets = parseBulletPoints(semesterPlan?.project_goals, 3);
+  const priorityBullets = parseBulletPoints(semesterPlan?.priorities, 3);
 
   // Handler buka modal simulator
   function openSimulator(num: number) {
@@ -361,97 +393,277 @@ export default function SemesterReviewTab() {
           </Button>
         </div>
 
-        {/* Bento / Interactive Mind Map Presentation */}
-        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-zinc-50 p-5 shadow-xs">
-          {/* CENTER NODE: FOKUS INTI SEMESTER */}
-          <div className="mx-auto max-w-xl text-center mb-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-0.5 text-[11px] font-bold text-white shadow-xs">
-              <Sparkles size={12} />
+        {/* Visual Linked Mind Map Presentation */}
+        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-zinc-50 p-4 sm:p-5 shadow-xs">
+          {/* SIMPUL INTI: FOKUS UTAMA SEMESTER (CENTER HUB) */}
+          <div className="relative mx-auto max-w-md rounded-2xl border border-indigo-200/90 bg-white/95 p-4 text-center shadow-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-2xs uppercase">
+              <Sparkles size={11} />
               FOKUS INTI SEMESTER {activeSmtNumber}
             </span>
-            <h3 className="mt-2 text-lg sm:text-xl font-black text-zinc-900 tracking-tight leading-snug">
+            <h3 className="mt-2 text-base sm:text-lg font-black text-zinc-900 tracking-tight leading-snug">
               {semesterPlan?.focus || (
-                <span className="text-zinc-400 font-medium italic text-base">
+                <span className="text-zinc-400 font-medium italic text-xs sm:text-sm">
                   &ldquo;Klik &apos;Atur Kompas Semester&apos; untuk menetapkan fokus inti semester ini&rdquo;
                 </span>
               )}
             </h3>
             {currentSemester && (
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-[11px] text-zinc-500 mt-1">
                 {currentSemester.label ||
                   `${currentSemester.academic_year} · Semester ${currentSemester.semester_number}`}
               </p>
             )}
           </div>
 
-          {/* 4 CABANG SATELIT (BENTO GRID) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Cabang 1: Akademik & Target IPK */}
-            <div className="rounded-xl border border-blue-200 bg-white/90 p-4 space-y-2 shadow-2xs hover:border-blue-300 transition">
-              <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                  <BookOpen size={14} />
-                </span>
-                <span>Akademik & Target Nilai (Target 4.00 IPK)</span>
-              </div>
-              <p className="text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                {semesterPlan?.academic_goals || (
-                  <span className="text-zinc-400 italic">
-                    Belum ada target akademik yang ditentukan.
-                  </span>
-                )}
-              </p>
-            </div>
+          {/* DESKTOP VIEW (>= md): VISUAL LINKED MIND MAP DENGAN SVG NATIVE CURVED LINES */}
+          <div className="hidden md:block">
+            {/* Native SVG Curved Bezier Lines */}
+            <svg
+              viewBox="0 0 1000 64"
+              className="w-full h-16 pointer-events-none"
+              fill="none"
+            >
+              {/* Center Origin Node */}
+              <circle cx="500" cy="2" r="4" fill="#4f46e5" />
 
-            {/* Cabang 2: Skill & Self-Learning */}
-            <div className="rounded-xl border border-emerald-200 bg-white/90 p-4 space-y-2 shadow-2xs hover:border-emerald-300 transition">
-              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                  <Wrench size={14} />
-                </span>
-                <span>Penguasaan Skill & Belajar Mandiri</span>
+              {/* Cabang 1 -> 125 (Target Akademik) */}
+              <path
+                d="M 500 0 C 500 36, 125 28, 125 64"
+                stroke="#93c5fd"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+              <circle cx="125" cy="61" r="3.5" fill="#3b82f6" />
+
+              {/* Cabang 2 -> 375 (Keahlian & Mandiri) */}
+              <path
+                d="M 500 0 C 500 36, 375 28, 375 64"
+                stroke="#6ee7b7"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+              <circle cx="375" cy="61" r="3.5" fill="#10b981" />
+
+              {/* Cabang 3 -> 625 (Karya & Portofolio) */}
+              <path
+                d="M 500 0 C 500 36, 625 28, 625 64"
+                stroke="#fcd34d"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+              <circle cx="625" cy="61" r="3.5" fill="#f59e0b" />
+
+              {/* Cabang 4 -> 875 (Disiplin & Presensi) */}
+              <path
+                d="M 500 0 C 500 36, 875 28, 875 64"
+                stroke="#d8b4fe"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+              <circle cx="875" cy="61" r="3.5" fill="#a855f7" />
+            </svg>
+
+            {/* 4 Kolom Satelit Sejajar */}
+            <div className="grid grid-cols-4 gap-3.5">
+              {/* Cabang 1: Akademik & Target IPK */}
+              <div className="rounded-xl border border-blue-200/90 bg-white/95 p-3.5 space-y-2.5 shadow-2xs hover:border-blue-300 transition">
+                <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-100 text-blue-700 shrink-0">
+                    <BookOpen size={12} />
+                  </span>
+                  <span className="truncate">Akademik & Nilai</span>
+                </div>
+                {academicBullets.length > 0 ? (
+                  <ul className="space-y-1.5 text-xs text-zinc-700">
+                    {academicBullets.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                        <span className="leading-snug">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-zinc-400 italic">
+                    Belum ada target akademik.
+                  </p>
+                )}
               </div>
-              <p className="text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                {semesterPlan?.learning_goals || (
-                  <span className="text-zinc-400 italic">
+
+              {/* Cabang 2: Skill & Belajar Mandiri */}
+              <div className="rounded-xl border border-emerald-200/90 bg-white/95 p-3.5 space-y-2.5 shadow-2xs hover:border-emerald-300 transition">
+                <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 shrink-0">
+                    <Wrench size={12} />
+                  </span>
+                  <span className="truncate">Keahlian & Mandiri</span>
+                </div>
+                {learningBullets.length > 0 ? (
+                  <ul className="space-y-1.5 text-xs text-zinc-700">
+                    {learningBullets.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="leading-snug">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-zinc-400 italic">
                     Belum ada target keahlian baru.
-                  </span>
+                  </p>
                 )}
-              </p>
-            </div>
-
-            {/* Cabang 3: Karya & Proyek Riil */}
-            <div className="rounded-xl border border-amber-200 bg-white/90 p-4 space-y-2 shadow-2xs hover:border-amber-300 transition">
-              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-                  <Rocket size={14} />
-                </span>
-                <span>Karya Portofolio & Proyek Riil</span>
               </div>
-              <p className="text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                {semesterPlan?.project_goals || (
-                  <span className="text-zinc-400 italic">
+
+              {/* Cabang 3: Karya Portofolio & Proyek Riil */}
+              <div className="rounded-xl border border-amber-200/90 bg-white/95 p-3.5 space-y-2.5 shadow-2xs hover:border-amber-300 transition">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-700 shrink-0">
+                    <Rocket size={12} />
+                  </span>
+                  <span className="truncate">Karya & Portofolio</span>
+                </div>
+                {projectBullets.length > 0 ? (
+                  <ul className="space-y-1.5 text-xs text-zinc-700">
+                    {projectBullets.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                        <span className="leading-snug">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-zinc-400 italic">
                     Belum ada target proyek portofolio.
-                  </span>
+                  </p>
                 )}
-              </p>
+              </div>
+
+              {/* Cabang 4: Disiplin Presensi & Bimbingan DPA */}
+              <div className="rounded-xl border border-purple-200/90 bg-white/95 p-3.5 space-y-2.5 shadow-2xs hover:border-purple-300 transition">
+                <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-purple-700 shrink-0">
+                    <ShieldCheck size={12} />
+                  </span>
+                  <span className="truncate">Disiplin & DPA</span>
+                </div>
+                {priorityBullets.length > 0 ? (
+                  <ul className="space-y-1.5 text-xs text-zinc-700">
+                    {priorityBullets.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
+                        <span className="leading-snug">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-zinc-400 italic">
+                    Belum ada komitmen disiplin.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* MOBILE VIEW (< md): VERTICAL LINKED TREE */}
+          <div className="mt-4 block md:hidden relative pl-5 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-indigo-200">
+            {/* Cabang 1: Akademik & Nilai */}
+            <div className="relative rounded-xl border border-blue-200/90 bg-white/95 p-3 shadow-2xs space-y-1.5">
+              <span className="absolute -left-[16px] top-4 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-500 shadow-xs" />
+              <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-100 text-blue-700 shrink-0">
+                  <BookOpen size={12} />
+                </span>
+                <span>Target Akademik & Nilai</span>
+              </div>
+              {academicBullets.length > 0 ? (
+                <ul className="space-y-1 text-xs text-zinc-700">
+                  {academicBullets.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-zinc-400 italic">
+                  Belum ada target akademik.
+                </p>
+              )}
             </div>
 
-            {/* Cabang 4: Disiplin, Presensi & DPA */}
-            <div className="rounded-xl border border-purple-200 bg-white/90 p-4 space-y-2 shadow-2xs hover:border-purple-300 transition">
-              <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
-                  <ShieldCheck size={14} />
+            {/* Cabang 2: Skill & Belajar Mandiri */}
+            <div className="relative rounded-xl border border-emerald-200/90 bg-white/95 p-3 shadow-2xs space-y-1.5">
+              <span className="absolute -left-[16px] top-4 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-xs" />
+              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 shrink-0">
+                  <Wrench size={12} />
                 </span>
-                <span>Disiplin Presensi 75% & Bimbingan DPA</span>
+                <span>Keahlian & Mandiri</span>
               </div>
-              <p className="text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                {semesterPlan?.priorities || (
-                  <span className="text-zinc-400 italic">
-                    Komitmen presensi 100% dan 3x bimbingan DPA tepat waktu.
-                  </span>
-                )}
-              </p>
+              {learningBullets.length > 0 ? (
+                <ul className="space-y-1 text-xs text-zinc-700">
+                  {learningBullets.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-zinc-400 italic">
+                  Belum ada target keahlian baru.
+                </p>
+              )}
+            </div>
+
+            {/* Cabang 3: Karya & Portofolio */}
+            <div className="relative rounded-xl border border-amber-200/90 bg-white/95 p-3 shadow-2xs space-y-1.5">
+              <span className="absolute -left-[16px] top-4 h-2.5 w-2.5 rounded-full border-2 border-white bg-amber-500 shadow-xs" />
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-700 shrink-0">
+                  <Rocket size={12} />
+                </span>
+                <span>Karya & Portofolio</span>
+              </div>
+              {projectBullets.length > 0 ? (
+                <ul className="space-y-1 text-xs text-zinc-700">
+                  {projectBullets.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-zinc-400 italic">
+                  Belum ada target proyek portofolio.
+                </p>
+              )}
+            </div>
+
+            {/* Cabang 4: Disiplin & Presensi */}
+            <div className="relative rounded-xl border border-purple-200/90 bg-white/95 p-3 shadow-2xs space-y-1.5">
+              <span className="absolute -left-[16px] top-4 h-2.5 w-2.5 rounded-full border-2 border-white bg-purple-500 shadow-xs" />
+              <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-purple-700 shrink-0">
+                  <ShieldCheck size={12} />
+                </span>
+                <span>Disiplin & Bimbingan DPA</span>
+              </div>
+              {priorityBullets.length > 0 ? (
+                <ul className="space-y-1 text-xs text-zinc-700">
+                  {priorityBullets.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-zinc-400 italic">
+                  Belum ada komitmen disiplin.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -757,7 +969,10 @@ export default function SemesterReviewTab() {
         title={`Atur Kompas Semester ${activeSmtNumber}`}
       >
         <form onSubmit={saveCompass} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
-          <Field label="Fokus Inti Semester (Center Node)">
+          <Field label="Fokus Inti Semester (Center Hub)">
+            <p className="text-[11px] text-zinc-500 mb-1">
+              Tuliskan 1 kalimat tema atau visi utama semester ini.
+            </p>
             <Input
               value={compassForm.focus ?? ""}
               onChange={(e) =>
@@ -768,47 +983,59 @@ export default function SemesterReviewTab() {
             />
           </Field>
 
-          <Field label="Akademik & Target IPK">
+          <Field label="1. Target Akademik & Nilai (Maks 2-3 Poin Ringkas)">
+            <p className="text-[11px] text-zinc-500 mb-1">
+              Gunakan baris baru atau tanda &apos;-&apos; untuk memisahkan poin singkat.
+            </p>
             <Textarea
               rows={2}
               value={compassForm.academic_goals ?? ""}
               onChange={(e) =>
                 setCompassForm({ ...compassForm, academic_goals: e.target.value })
               }
-              placeholder="Target IPK 4.00, seluruh praktikum nilai A, pemahaman teori kalkulus..."
+              placeholder="- Target IPK ≥ 3.85&#10;- Seluruh praktikum nilai A&#10;- Paham kalkulus dasar"
             />
           </Field>
 
-          <Field label="Skill & Belajar Mandiri (Self-Learning)">
+          <Field label="2. Keahlian & Belajar Mandiri (Maks 2-3 Poin Ringkas)">
+            <p className="text-[11px] text-zinc-500 mb-1">
+              Skill di luar perkuliahan (misal: Docker, Go, Next.js).
+            </p>
             <Textarea
               rows={2}
               value={compassForm.learning_goals ?? ""}
               onChange={(e) =>
                 setCompassForm({ ...compassForm, learning_goals: e.target.value })
               }
-              placeholder="Skill baru yang ingin dipelajari di luar perkuliahan (misal: Docker, Go)..."
+              placeholder="- Pelajari container Docker&#10;- Pendalaman Next.js 16 App Router&#10;- Cloud Certification"
             />
           </Field>
 
-          <Field label="Karya Portofolio & Proyek Riil">
+          <Field label="3. Karya Portofolio & Proyek Riil (Maks 2-3 Poin Ringkas)">
+            <p className="text-[11px] text-zinc-500 mb-1">
+              Karya proyek nyata yang akan dipublikasikan ke portofolio / GitHub.
+            </p>
             <Textarea
               rows={2}
               value={compassForm.project_goals ?? ""}
               onChange={(e) =>
                 setCompassForm({ ...compassForm, project_goals: e.target.value })
               }
-              placeholder="Aplikasi yang ingin dibangun dan dipublikasikan ke GitHub / portfolio..."
+              placeholder="- Rilis produk Kuliah Hub ke production&#10;- Bangun personal portfolio&#10;- CLI automation tool"
             />
           </Field>
 
-          <Field label="Disiplin, Presensi & Milestone DPA">
+          <Field label="4. Disiplin Presensi & Bimbingan DPA (Maks 2-3 Poin Ringkas)">
+            <p className="text-[11px] text-zinc-500 mb-1">
+              Komitmen kehadiran kuliah dan bimbingan dosen wali.
+            </p>
             <Textarea
               rows={2}
               value={compassForm.priorities ?? ""}
               onChange={(e) =>
                 setCompassForm({ ...compassForm, priorities: e.target.value })
               }
-              placeholder="Komitmen hadir 100%, 3x bimbingan DPA, tepat waktu submit E-Learning..."
+              placeholder="- Kehadiran kuliah 100%&#10;- 3x bimbingan DPA tepat waktu&#10;- Kumpulkan tugas H-1 deadline"
             />
           </Field>
 

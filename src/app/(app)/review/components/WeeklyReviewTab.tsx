@@ -149,7 +149,6 @@ export default function WeeklyReviewTab() {
       task_open: form.task_open.trim() || null,
       task_next_deadline: form.task_next_deadline.trim() || null,
       learning_what: form.learning_what.trim() || null,
-      // Pertahankan data review yang sudah ada jika ada
       academic_done: selectedWeek?.academic_done ?? null,
       academic_pending: selectedWeek?.academic_pending ?? null,
       academic_unclear: selectedWeek?.academic_unclear ?? null,
@@ -200,7 +199,6 @@ export default function WeeklyReviewTab() {
       learning_progress: form.learning_progress.trim() || null,
       project_progress: form.project_progress.trim() || null,
       project_blocked: form.project_blocked.trim() || null,
-      // Pertahankan data plan yang sudah ada
       next_priorities: selectedWeek?.next_priorities ?? null,
       task_open: selectedWeek?.task_open ?? null,
       task_next_deadline: selectedWeek?.task_next_deadline ?? null,
@@ -226,21 +224,26 @@ export default function WeeklyReviewTab() {
     ? format(weekDateObj, "EEEE, d MMMM yyyy", { locale: idLocale })
     : selectedWeekStart;
 
-  const hasPlan = Boolean(
-    selectedWeek?.next_priorities ||
-      selectedWeek?.task_open ||
-      selectedWeek?.task_next_deadline ||
-      selectedWeek?.learning_what
+  // Cek keberadaan konten spesifik (Content-Driven)
+  const hasPriorities = Boolean(selectedWeek?.next_priorities?.trim());
+  const hasTasks = Boolean(
+    selectedWeek?.task_open?.trim() || selectedWeek?.task_next_deadline?.trim()
   );
+  const hasLearning = Boolean(selectedWeek?.learning_what?.trim());
+  const hasPlan = hasPriorities || hasTasks || hasLearning;
 
-  const hasReview = Boolean(
-    selectedWeek?.academic_done ||
-      selectedWeek?.academic_unclear ||
-      selectedWeek?.academic_pending ||
-      selectedWeek?.next_improve ||
-      selectedWeek?.learning_progress ||
-      selectedWeek?.project_progress
+  const hasAcademicDone = Boolean(
+    selectedWeek?.academic_done?.trim() ||
+      selectedWeek?.learning_progress?.trim() ||
+      selectedWeek?.project_progress?.trim()
   );
+  const hasHambatan = Boolean(
+    selectedWeek?.academic_unclear?.trim() ||
+      selectedWeek?.academic_pending?.trim() ||
+      selectedWeek?.project_blocked?.trim()
+  );
+  const hasImprove = Boolean(selectedWeek?.next_improve?.trim());
+  const hasReview = hasAcademicDone || hasHambatan || hasImprove;
 
   return (
     <div className="space-y-6">
@@ -298,23 +301,23 @@ export default function WeeklyReviewTab() {
           {/* ======================================================== */}
           {/* PANEL KIRI: 🎯 Weekly Plan (Target Awal Minggu - Senin)    */}
           {/* ======================================================== */}
-          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+          <Card className="!p-5 space-y-3.5 border-zinc-200 bg-white shadow-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
                   <Target size={16} />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                  <h3 className="text-sm font-bold text-zinc-900 leading-tight">
                     Weekly Plan (Target Awal Minggu)
                   </h3>
-                  <span className="text-[10px] text-zinc-400">
+                  <span className="text-[10px] text-zinc-400 block mt-0.5">
                     Disusun setiap Senin Pagi
                   </span>
                 </div>
               </div>
 
-              {hasPlan ? (
+              {hasPlan && (
                 <button
                   onClick={openPlanModal}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"
@@ -322,23 +325,20 @@ export default function WeeklyReviewTab() {
                 >
                   <Pencil size={12} /> Edit Plan
                 </button>
-              ) : null}
+              )}
             </div>
 
             {!hasPlan ? (
-              /* Empty state plan */
-              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                  <Target size={18} />
+              /* Compact Adaptive Empty State */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-700">
+                  <Target size={15} className="text-indigo-600" />
+                  <span>Belum ada rencana minggu ini</span>
                 </div>
-                <h4 className="text-xs font-bold text-zinc-800">
-                  Belum ada rencana minggu ini
-                </h4>
                 <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
-                  Tetapkan target awal minggu agar arah belajar, tugas mendesak,
-                  dan prioritas terekam jelas.
+                  Kunci target dan prioritas awal minggu agar waktu belajar lebih terarah.
                 </p>
-                <div className="pt-1">
+                <div>
                   <Button
                     variant="secondary"
                     onClick={openPlanModal}
@@ -349,48 +349,48 @@ export default function WeeklyReviewTab() {
                 </div>
               </div>
             ) : (
-              /* Open Content Plan */
-              <div className="space-y-4 text-xs">
+              /* Content-Driven Plan Display (Only Render Non-Empty Sections) */
+              <div className="space-y-3 text-xs">
                 {/* 1. Top Prioritas */}
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
-                    <Compass size={14} className="text-indigo-600" />
-                    <span>Top 3 Prioritas Utama</span>
+                {hasPriorities && (
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-xs">
+                      <Compass size={14} className="text-indigo-600 shrink-0" />
+                      <span>Top 3 Prioritas Utama</span>
+                    </div>
+                    <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
+                      {selectedWeek?.next_priorities}
+                    </p>
                   </div>
-                  <p className="text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed">
-                    {selectedWeek?.next_priorities || (
-                      <span className="text-zinc-400 italic">Belum diisi.</span>
-                    )}
-                  </p>
-                </div>
+                )}
 
                 {/* 2. Target Tugas & Deadline */}
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
-                  <span className="font-semibold text-zinc-700 block">
-                    Target Tugas & Deadline Kunci:
-                  </span>
-                  <p className="text-zinc-600 whitespace-pre-wrap">
-                    {selectedWeek?.task_open || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada target tugas spesifik.
-                      </span>
+                {hasTasks && (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1.5">
+                    <span className="font-semibold text-zinc-700 block">
+                      Target Tugas & Deadline Kunci:
+                    </span>
+                    {selectedWeek?.task_open && (
+                      <p className="text-zinc-600 whitespace-pre-wrap">
+                        {selectedWeek.task_open}
+                      </p>
                     )}
-                  </p>
-                  {selectedWeek?.task_next_deadline && (
-                    <p className="text-[11px] text-amber-700 font-medium pt-1 border-t border-zinc-200/60">
-                      ⏰ Deadline Terdekat: {selectedWeek.task_next_deadline}
-                    </p>
-                  )}
-                </div>
+                    {selectedWeek?.task_next_deadline && (
+                      <p className="text-[11px] text-amber-700 font-medium pt-1 border-t border-zinc-200/60">
+                        ⏰ Deadline: {selectedWeek.task_next_deadline}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. Belajar Mandiri & Materi */}
-                {selectedWeek?.learning_what && (
+                {hasLearning && (
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1">
                     <span className="font-semibold text-zinc-700 block">
                       Fokus Belajar Mandiri / Materi:
                     </span>
                     <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedWeek.learning_what}
+                      {selectedWeek?.learning_what}
                     </p>
                   </div>
                 )}
@@ -401,23 +401,23 @@ export default function WeeklyReviewTab() {
           {/* ======================================================== */}
           {/* PANEL KANAN: 📋 Weekly Review (Evaluasi Akhir - Minggu)   */}
           {/* ======================================================== */}
-          <Card className="!p-5 space-y-4 border-zinc-200 bg-white shadow-xs">
+          <Card className="!p-5 space-y-3.5 border-zinc-200 bg-white shadow-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                   <ClipboardList size={16} />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 leading-snug">
+                  <h3 className="text-sm font-bold text-zinc-900 leading-tight">
                     Weekly Review (Evaluasi Akhir Minggu)
                   </h3>
-                  <span className="text-[10px] text-zinc-400">
+                  <span className="text-[10px] text-zinc-400 block mt-0.5">
                     Disusun setiap Minggu Malam
                   </span>
                 </div>
               </div>
 
-              {hasReview ? (
+              {hasReview && (
                 <button
                   onClick={openReviewModal}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition"
@@ -425,83 +425,80 @@ export default function WeeklyReviewTab() {
                 >
                   <Pencil size={12} /> Edit Review
                 </button>
-              ) : null}
+              )}
             </div>
 
             {!hasReview ? (
-              /* Empty state review */
-              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-6 text-center space-y-2">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  <Clock size={18} />
+              /* Compact Adaptive Empty State */
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-700">
+                  <Clock size={15} className="text-emerald-600" />
+                  <span>Review belum ditulis</span>
                 </div>
-                <h4 className="text-xs font-bold text-zinc-800">
-                  Review belum ditulis
-                </h4>
                 <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
-                  Bandingkan hasil capaian riil Anda dengan target rencana di
-                  sebelah kiri untuk refleksi objektif.
+                  Bandingkan hasil riil dengan target di sebelah kiri untuk refleksi objektif.
                 </p>
-                <div className="pt-1">
+                <div>
                   <Button onClick={openReviewModal} className="!text-xs !py-1">
                     <Sparkles size={12} /> + Tulis Review Sekarang
                   </Button>
                 </div>
               </div>
             ) : (
-              /* Open Content Review */
-              <div className="space-y-4 text-xs">
+              /* Content-Driven Review Display (Only Render Non-Empty Sections) */
+              <div className="space-y-3 text-xs">
                 {/* 1. Capaian & Keberhasilan */}
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
-                    <Trophy size={14} className="text-emerald-600" />
-                    <span>Capaian & Kemenangan Minggu Ini</span>
-                  </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedWeek?.academic_done || (
-                      <span className="text-zinc-400 italic">
-                        Tidak ada catatan capaian.
-                      </span>
+                {hasAcademicDone && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+                      <Trophy size={14} className="text-emerald-600 shrink-0" />
+                      <span>Capaian & Kemenangan Minggu Ini</span>
+                    </div>
+                    {selectedWeek?.academic_done && (
+                      <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                        {selectedWeek.academic_done}
+                      </p>
                     )}
-                  </p>
-                  {(selectedWeek?.learning_progress ||
-                    selectedWeek?.project_progress) && (
-                    <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
-                      {selectedWeek.learning_progress || selectedWeek.project_progress}
-                    </p>
-                  )}
-                </div>
+                    {(selectedWeek?.learning_progress ||
+                      selectedWeek?.project_progress) && (
+                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-emerald-100">
+                        {selectedWeek.learning_progress || selectedWeek.project_progress}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 2. Hambatan & Titik Bingung */}
-                <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
-                    <AlertTriangle size={14} className="text-amber-600" />
-                    <span>Hambatan & Materi Belum Paham</span>
-                  </div>
-                  <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedWeek?.academic_unclear || (
-                      <span className="text-zinc-400 italic">
-                        Semua materi terkendali.
-                      </span>
+                {hasHambatan && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                      <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                      <span>Hambatan & Materi Belum Paham</span>
+                    </div>
+                    {selectedWeek?.academic_unclear && (
+                      <p className="text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                        {selectedWeek.academic_unclear}
+                      </p>
                     )}
-                  </p>
-                  {(selectedWeek?.academic_pending ||
-                    selectedWeek?.project_blocked) && (
-                    <p className="text-[11px] text-amber-700 pt-1 border-t border-amber-100">
-                      Tertunda:{" "}
-                      {selectedWeek.academic_pending ||
-                        selectedWeek.project_blocked}
-                    </p>
-                  )}
-                </div>
+                    {(selectedWeek?.academic_pending ||
+                      selectedWeek?.project_blocked) && (
+                      <p className="text-[11px] text-amber-700 pt-1 border-t border-amber-100">
+                        Tertunda:{" "}
+                        {selectedWeek.academic_pending ||
+                          selectedWeek.project_blocked}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. Komitmen Perbaikan Diri */}
-                {selectedWeek?.next_improve && (
+                {hasImprove && (
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50/40 p-3.5 space-y-1">
                     <span className="font-semibold text-zinc-700 block">
                       Komitmen Perbaikan Diri:
                     </span>
                     <p className="text-zinc-600 whitespace-pre-wrap">
-                      {selectedWeek.next_improve}
+                      {selectedWeek?.next_improve}
                     </p>
                   </div>
                 )}
